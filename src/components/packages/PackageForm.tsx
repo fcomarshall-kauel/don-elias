@@ -29,6 +29,7 @@ export function PackageForm({ onSubmit }: PackageFormProps) {
       <div>
         <label className="block text-base font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Departamento</label>
         <input
+          inputMode="numeric"
           className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-xl font-semibold focus:border-[#0056D2] focus:outline-none bg-white"
           placeholder="Ej: 504"
           value={apt}
