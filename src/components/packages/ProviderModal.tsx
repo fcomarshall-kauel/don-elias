@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { PackageType } from '@/types';
+import { DictationInput } from '@/components/ui/DictationInput';
 import { CheckCircle } from 'lucide-react';
 
 const PROVIDERS: Record<PackageType, string[]> = {
@@ -78,10 +79,9 @@ export function ProviderModal({ isOpen, apt, type, onConfirm, onClose }: Provide
 
             <div>
               <p className="text-sm font-semibold text-slate-500 mb-2">Nota (opcional)</p>
-              <input
-                type="text"
+              <DictationInput
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
+                onChange={setNote}
                 placeholder="Ej: caja grande, frágil..."
                 className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-[#0056D2]"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}

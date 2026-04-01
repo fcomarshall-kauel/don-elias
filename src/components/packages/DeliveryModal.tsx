@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { getResidentsByApt, getTowerByApt } from '@/data/residents';
-import { CheckCircle, User, Search } from 'lucide-react';
+import { DictationInput } from '@/components/ui/DictationInput';
+import { CheckCircle, User } from 'lucide-react';
 
 interface DeliveryModalProps {
   isOpen: boolean;
@@ -61,24 +62,19 @@ export function DeliveryModal({ isOpen, apt, onConfirm, onClose }: DeliveryModal
         </button>
       ) : (
         <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={customName}
-              onChange={(e) => setCustomName(e.target.value)}
-              placeholder="Nombre de quien retira"
-              autoFocus
-              className="w-full pl-9 pr-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-[#00875A]"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && customName.trim()) handleConfirm(customName.trim());
-              }}
-            />
-          </div>
+          <DictationInput
+            value={customName}
+            onChange={setCustomName}
+            placeholder="Nombre de quien retira"
+            className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-[#00875A]"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && customName.trim()) handleConfirm(customName.trim());
+            }}
+          />
           <button
             onClick={() => customName.trim() && handleConfirm(customName.trim())}
             disabled={!customName.trim()}
-            className="bg-[#00875A] hover:bg-[#006644] disabled:bg-slate-300 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-colors cursor-pointer"
+            className="bg-[#00875A] hover:bg-[#006644] disabled:bg-slate-300 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-colors cursor-pointer shrink-0"
           >
             OK
           </button>

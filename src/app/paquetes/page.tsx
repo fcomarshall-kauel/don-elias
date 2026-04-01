@@ -8,10 +8,12 @@ import { PackageCard } from '@/components/packages/PackageCard';
 import { NumpadModal } from '@/components/packages/NumpadModal';
 import { ProviderModal } from '@/components/packages/ProviderModal';
 import { DeliveryModal } from '@/components/packages/DeliveryModal';
+import { VoiceButton } from '@/components/packages/VoiceButton';
 import { usePackages } from '@/hooks/usePackages';
 import { useWhatsAppMessages, buildNotifyText, buildDeliveredText } from '@/hooks/useWhatsAppMessages';
 import { useSettings } from '@/hooks/useSettings';
 import { PackageType } from '@/types';
+import { VoiceCommand } from '@/lib/voiceParser';
 import { Package, MessageCircle } from 'lucide-react';
 
 export default function PaquetesPage() {
@@ -52,6 +54,24 @@ export default function PaquetesPage() {
     setPendingRegistration(null);
     setNewPkgId(id);
     setTimeout(() => setNewPkgId(null), 2000);
+  };
+
+  // Comando de voz
+  const handleVoiceCommand = (command: VoiceCommand) => {
+    if (command.action === 'register') {
+      const type = command.type ?? 'normal';
+      if (command.apt) {
+        // Tiene tipo + depto → directo al modal de proveedor
+        setPendingRegistration({ recipientApt: command.apt, type });
+      } else {
+        // Solo tipo → abre numpad
+        setSelectedType(type);
+      }
+    } else if (command.action === 'deliver' && command.apt) {
+      // Buscar paquete pendiente para ese depto
+      const pkg = pendingPackages.find(p => p.recipientApt === command.apt);
+      if (pkg) setDeliverTarget({ id: pkg.id, apt: pkg.recipientApt });
+    }
   };
 
   const handleNotify = (id: string) => {
@@ -213,6 +233,7 @@ export default function PaquetesPage() {
           onClose={() => setNotifyTarget(null)}
         />
       )}
+      <VoiceButton onCommand={handleVoiceCommand} />
     </AppShell>
   );
 }

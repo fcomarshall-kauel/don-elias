@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { NovedadCategory } from '@/types';
+import { DictationTextarea } from '@/components/ui/DictationTextarea';
 import { AlertTriangle, Info, CheckSquare } from 'lucide-react';
 
 const CATEGORIES: { value: NovedadCategory; label: string; icon: typeof Info; activeStyle: string; iconColor: string }[] = [
@@ -47,12 +48,12 @@ export function NovedadForm({ authorName, onSubmit }: NovedadFormProps) {
 
       <div>
         <label className="block text-base font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Descripción</label>
-        <textarea
+        <DictationTextarea
           className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base font-medium focus:border-[#0056D2] focus:outline-none resize-none bg-white"
           rows={5}
           placeholder='Ej: "Depto 1102 dejó sobre para retirar..."'
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={setText}
         />
       </div>
 
