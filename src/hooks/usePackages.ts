@@ -16,20 +16,22 @@ export function usePackages() {
     return acc;
   }, {});
 
-  const addPackage = (data: { recipientApt: string; type: PackageType }) => {
+  const addPackage = (data: { recipientApt: string; type: PackageType; provider?: string; note?: string; receivedBy: string }): string => {
+    const id = crypto.randomUUID();
     const newPkg: Package = {
-      id: crypto.randomUUID(),
+      id,
       ...data,
       receivedAt: new Date().toISOString(),
       status: 'pending',
     };
     setPackages(prev => [newPkg, ...prev]);
+    return id;
   };
 
-  const markDelivered = (id: string) => {
+  const markDelivered = (id: string, deliveredTo?: string) => {
     setPackages(prev =>
       prev.map(p =>
-        p.id === id ? { ...p, status: 'delivered', deliveredAt: new Date().toISOString() } : p
+        p.id === id ? { ...p, status: 'delivered', deliveredAt: new Date().toISOString(), deliveredTo } : p
       )
     );
   };

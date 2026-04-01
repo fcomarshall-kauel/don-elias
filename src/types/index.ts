@@ -11,15 +11,19 @@ export interface Visit {
   status: 'active' | 'checked-out';
 }
 
-export type PackageType = 'food' | 'normal' | 'document';
+export type PackageType = 'food' | 'normal' | 'other' | 'supermercado';
 export type PackageStatus = 'pending' | 'delivered';
 
 export interface Package {
   id: string;
   recipientApt: string;
   type: PackageType;
+  provider?: string;
+  note?: string;
   receivedAt: string;
+  receivedBy: string;
   deliveredAt?: string;
+  deliveredTo?: string;
   status: PackageStatus;
   notifiedAt?: string;
 }

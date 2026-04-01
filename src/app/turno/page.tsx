@@ -6,7 +6,8 @@ import { useVisits } from '@/hooks/useVisits';
 import { usePackages } from '@/hooks/usePackages';
 import { useNovedades } from '@/hooks/useNovedades';
 import { useSettings } from '@/hooks/useSettings';
-import { Users, Package, BookOpen, CheckCircle, RefreshCw } from 'lucide-react';
+import { CONCIERGES } from '@/data/concierges';
+import { Users, Package, BookOpen, CheckCircle, RefreshCw, UserCircle } from 'lucide-react';
 
 export default function TurnoPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function TurnoPage() {
   const openTareas = recentNovedades.filter(n => !n.isHandoverEntry && n.category === 'tarea');
 
   const handleConfirm = () => {
-    if (!newName.trim()) { setError('Ingresa el nombre del nuevo conserje.'); return; }
+    if (!newName.trim()) return;
     const summary = `Cambio de turno: ${settings.conciergerName} → ${newName.trim()}. Visitas activas: ${activeVisits.length}. Paquetes pendientes: ${pendingPackages.length}. Tareas abiertas: ${openTareas.length}.`;
     addHandoverEntry(summary, settings.conciergerName);
     updateConciergerName(newName.trim());
@@ -74,22 +75,33 @@ export default function TurnoPage() {
             </div>
           </div>
 
-          {/* Name input */}
+          {/* Concierge selector */}
           <div className="bg-white rounded-2xl border-2 border-slate-200 p-6 shadow-sm">
-            <label className="block text-lg font-bold text-slate-700 mb-3 uppercase tracking-wide">Nombre del nuevo conserje</label>
-            <input
-              className="w-full border-2 border-slate-200 rounded-xl px-5 py-4 text-2xl font-semibold focus:border-[#0056D2] focus:outline-none"
-              placeholder="Ej: Roberto Fuentes"
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-            />
-            {error && <p className="text-red-600 text-lg mt-2 font-semibold">{error}</p>}
+            <label className="block text-lg font-bold text-slate-700 mb-3 uppercase tracking-wide">¿Quién entra al turno?</label>
+            <div className="grid grid-cols-2 gap-3">
+              {CONCIERGES.filter(c => c !== settings.conciergerName).map(name => (
+                <button
+                  key={name}
+                  onClick={() => setNewName(name)}
+                  className={`flex items-center gap-3 px-5 py-4 rounded-xl border-2 transition-colors cursor-pointer ${
+                    newName === name
+                      ? 'border-[#0056D2] bg-blue-50 text-[#0056D2]'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  }`}
+                >
+                  <UserCircle className="w-7 h-7 shrink-0" />
+                  <span className="text-xl font-bold">{name}</span>
+                </button>
+              ))}
+            </div>
+            {error && <p className="text-red-600 text-lg mt-3 font-semibold">{error}</p>}
           </div>
 
           {/* Confirm button */}
           <button
             onClick={handleConfirm}
-            className="w-full bg-[#00875A] hover:bg-[#006644] active:bg-[#005533] text-white py-5 rounded-2xl text-2xl font-extrabold transition-colors cursor-pointer flex items-center justify-center gap-3"
+            disabled={!newName}
+            className="w-full bg-[#00875A] hover:bg-[#006644] active:bg-[#005533] disabled:bg-slate-200 disabled:text-slate-400 text-white py-5 rounded-2xl text-2xl font-extrabold transition-colors cursor-pointer flex items-center justify-center gap-3"
           >
             <RefreshCw className="w-7 h-7" />
             Confirmar Cambio de Turno

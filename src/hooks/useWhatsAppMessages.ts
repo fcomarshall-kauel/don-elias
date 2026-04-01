@@ -12,8 +12,10 @@ export function buildNotifyText(packageType: PackageType, buildingName: string):
   switch (packageType) {
     case 'food':
       return `⚠️ *Urgente:* tiene un pedido de *comida* esperándole en recepción. Le pedimos retirarlo a la brevedad para evitar que se deteriore.${footer}`;
-    case 'document':
-      return `📄 Hola, tiene un *documento* en la recepción de ${buildingName}. Puede retirarlo cuando guste.${footer}`;
+    case 'other':
+      return `📄 Hola, tiene una *encomienda* en la recepción de ${buildingName}. Puede retirarlo cuando guste.${footer}`;
+    case 'supermercado':
+      return `🛒 *Aviso:* tiene un pedido de *supermercado* en recepción de ${buildingName}. Le sugerimos retirarlo pronto.${footer}`;
     default:
       return `📦 Hola, tiene un *paquete* en la recepción de ${buildingName}. Favor retirarlo cuando pueda.${footer}`;
   }

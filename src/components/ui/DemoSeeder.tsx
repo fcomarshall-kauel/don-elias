@@ -8,9 +8,10 @@ const DEMO_VISITS = [
 ];
 
 const DEMO_PACKAGES = [
-  { id: 'p1', recipientApt: '1102', type: 'food', receivedAt: new Date(Date.now() - 10 * 60000).toISOString(), status: 'pending' },
-  { id: 'p2', recipientApt: '203', type: 'normal', receivedAt: new Date(Date.now() - 45 * 60000).toISOString(), status: 'pending', notifiedAt: new Date(Date.now() - 40 * 60000).toISOString() },
-  { id: 'p3', recipientApt: '504', type: 'document', receivedAt: new Date(Date.now() - 180 * 60000).toISOString(), status: 'pending' },
+  { id: 'p1', recipientApt: '1102', type: 'food', provider: 'Uber Eats', receivedAt: new Date(Date.now() - 10 * 60000).toISOString(), receivedBy: 'Claudio', status: 'pending' },
+  { id: 'p2', recipientApt: '203', type: 'normal', provider: 'Mercado Libre', receivedAt: new Date(Date.now() - 45 * 60000).toISOString(), receivedBy: 'Claudio', status: 'pending', notifiedAt: new Date(Date.now() - 40 * 60000).toISOString() },
+  { id: 'p3', recipientApt: '504', type: 'other', receivedAt: new Date(Date.now() - 180 * 60000).toISOString(), receivedBy: 'Pedro Soto', status: 'pending' },
+  { id: 'p4', recipientApt: '301', type: 'supermercado', provider: 'Jumbo', receivedAt: new Date(Date.now() - 20 * 60000).toISOString(), receivedBy: 'Claudio', status: 'pending' },
 ];
 
 const DEMO_NOVEDADES = [
@@ -57,14 +58,15 @@ const DEMO_WHATSAPP = [
 
 export function DemoSeeder() {
   useEffect(() => {
-    if (!localStorage.getItem('porter_demo_seeded_v2')) {
+    if (!localStorage.getItem('porter_demo_seeded_v3')) {
       localStorage.removeItem('porter_demo_seeded');
+      localStorage.removeItem('porter_demo_seeded_v2');
       localStorage.setItem('porter_visits', JSON.stringify(DEMO_VISITS));
       localStorage.setItem('porter_packages', JSON.stringify(DEMO_PACKAGES));
       localStorage.setItem('porter_novedades', JSON.stringify(DEMO_NOVEDADES));
       localStorage.setItem('porter_whatsapp', JSON.stringify(DEMO_WHATSAPP));
       localStorage.setItem('porter_settings', JSON.stringify({ conciergerName: 'Claudio', buildingName: 'Gran Bretaña' }));
-      localStorage.setItem('porter_demo_seeded_v2', 'true');
+      localStorage.setItem('porter_demo_seeded_v3', 'true');
       window.location.reload();
     }
   }, []);

@@ -99,7 +99,7 @@ export default function DashboardPage() {
       const isFood = p.type === 'food';
       items.push({
         id: p.id,
-        title: isFood ? 'Delivery / Comida' : p.type === 'document' ? 'Documento recibido' : 'Paquete recibido',
+        title: isFood ? 'Delivery / Comida' : p.type === 'supermercado' ? 'Supermercado' : p.type === 'other' ? 'Otro' : 'Paquete recibido',
         subtitle: `Depto ${p.recipientApt}${p.notifiedAt ? ' · Notificado ✓' : ' · Sin notificar'}`,
         time: p.receivedAt,
         Icon: isFood ? UtensilsCrossed : Package,
