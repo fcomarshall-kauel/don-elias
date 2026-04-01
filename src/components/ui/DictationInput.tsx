@@ -14,6 +14,20 @@ export function DictationInput({ value, onChange, placeholder, className = '', o
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+
+  valueRef.current = value;
+  onChangeRef.current = onChange;
+
+  const forceStop = () => {
+    clearTimeout(stopTimerRef.current);
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+    }
+    setTimeout(() => setIsListening(false), 300);
+  };
 
   useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -26,41 +40,37 @@ export function DictationInput({ value, onChange, placeholder, className = '', o
     recognition.continuous = false;
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript;
-      // Append al valor actual con espacio si ya hay texto
-      onChange(value ? `${value} ${transcript}` : transcript);
-    };
-
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
-
-    recognitionRef.current = recognition;
-    return () => recognition.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Mantener el value actualizado para el onresult
-  const valueRef = useRef(value);
-  valueRef.current = value;
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-
-  useEffect(() => {
-    if (!recognitionRef.current) return;
-    recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+      clearTimeout(stopTimerRef.current);
       const transcript = event.results[0][0].transcript;
       const current = valueRef.current;
       onChangeRef.current(current ? `${current} ${transcript}` : transcript);
+      // Forzar cierre tras resultado
+      setTimeout(() => forceStop(), 300);
     };
+
+    recognition.onend = () => {
+      clearTimeout(stopTimerRef.current);
+      setIsListening(false);
+    };
+    recognition.onerror = () => {
+      clearTimeout(stopTimerRef.current);
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    return () => { clearTimeout(stopTimerRef.current); recognition.abort(); };
   }, []);
 
   const toggle = () => {
     if (!recognitionRef.current) return;
     if (isListening) {
-      recognitionRef.current.stop();
+      forceStop();
     } else {
       recognitionRef.current.start();
       setIsListening(true);
+      // Safety timeout: max 8s
+      clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = setTimeout(() => forceStop(), 8000);
     }
   };
 
