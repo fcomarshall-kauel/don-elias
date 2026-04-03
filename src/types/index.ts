@@ -44,16 +44,26 @@ export interface AppSettings {
   buildingName: string;
 }
 
-// WhatsApp mock — arquitectura lista para Meta Cloud API o Twilio
+// WhatsApp Business Cloud API — Meta Graph API v22.0
 export type WaEventType = 'notify' | 'delivered';
+export type WaMessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface WhatsAppMessage {
   id: string;
-  apt: string;          // Número de depto (actúa como contacto/número)
-  text: string;         // Cuerpo del mensaje enviado
-  sentAt: string;       // ISO 8601 — timestamp de envío
-  packageId: string;    // Trazabilidad: referencia al paquete origen
+  apt: string;              // Número de depto
+  text: string;             // Cuerpo del mensaje (para UI local)
+  sentAt: string;           // ISO 8601
+  packageId: string;        // Trazabilidad al paquete origen
   eventType: WaEventType;
-  // PRODUCCIÓN: añadir aquí → phoneNumber: string (sin +56, sin espacios)
-  // El envío real usaría: POST https://graph.facebook.com/v18.0/{phone_number_id}/messages
+  phoneNumber?: string;     // Formato internacional sin +: "56912345678"
+  waMessageId?: string;     // ID de mensaje de Meta para tracking de estado
+  status?: WaMessageStatus; // Estado de entrega
+  mock?: boolean;           // true si se envió sin API real (modo desarrollo)
+}
+
+export interface WhatsAppSendResult {
+  success: boolean;
+  messageId?: string;
+  mock?: boolean;
+  error?: string;
 }

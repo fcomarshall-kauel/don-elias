@@ -12,13 +12,14 @@ import { VoiceButton } from '@/components/packages/VoiceButton';
 import { usePackages } from '@/hooks/usePackages';
 import { useWhatsAppMessages, buildNotifyText, buildDeliveredText } from '@/hooks/useWhatsAppMessages';
 import { useSettings } from '@/hooks/useSettings';
+import { getPhonesByApt } from '@/data/residents';
 import { PackageType } from '@/types';
 import { VoiceCommand } from '@/lib/voiceParser';
 import { Package, MessageCircle } from 'lucide-react';
 
 export default function PaquetesPage() {
   const { pendingPackages, deliveredPackages, addPackage, markDelivered, markNotified } = usePackages();
-  const { addMessage, conversationList } = useWhatsAppMessages();
+  const { addMessage, sendAndRecord, conversationList } = useWhatsAppMessages();
   const { settings } = useSettings();
 
   // Flujo de registro: tipo → numpad → proveedor
@@ -89,11 +90,14 @@ export default function PaquetesPage() {
     const pkg = pendingPackages.find(p => p.id === deliverTarget.id);
     markDelivered(deliverTarget.id, deliveredTo);
     if (pkg) {
-      addMessage({
+      const phones = getPhonesByApt(pkg.recipientApt);
+      sendAndRecord({
         apt: pkg.recipientApt,
         text: buildDeliveredText(settings.buildingName),
         packageId: pkg.id,
         eventType: 'delivered',
+        phoneNumber: phones[0],
+        buildingName: settings.buildingName,
       });
     }
     setDeliverTarget(null);
@@ -224,12 +228,18 @@ export default function PaquetesPage() {
           apt={notifyTarget.apt}
           messageText={notifyMessageText}
           onConfirm={() => markNotified(notifyTarget.id)}
-          onMessageSent={() => addMessage({
-            apt: notifyTarget.apt,
-            text: notifyMessageText,
-            packageId: notifyTarget.id,
-            eventType: 'notify',
-          })}
+          onSend={async () => {
+            const phones = getPhonesByApt(notifyTarget.apt);
+            return sendAndRecord({
+              apt: notifyTarget.apt,
+              text: notifyMessageText,
+              packageId: notifyTarget.id,
+              eventType: 'notify',
+              phoneNumber: phones[0],
+              packageType: notifyTarget.type,
+              buildingName: settings.buildingName,
+            });
+          }}
           onClose={() => setNotifyTarget(null)}
         />
       )}
