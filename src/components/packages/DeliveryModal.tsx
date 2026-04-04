@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { BigButton } from '@/components/ui/BigButton';
-import { getResidentsByApt, getTowerByApt } from '@/data/residents';
+import { getResidentsByApt as getResidentsFallback, getTowerByApt } from '@/data/residents';
 import { DictationInput } from '@/components/ui/DictationInput';
 import { CheckCircle, User } from 'lucide-react';
 import { Package } from '@/types';
@@ -19,12 +19,14 @@ interface DeliveryModalProps {
   isOpen: boolean;
   apt: string;
   packages: Package[];
+  residentNames?: string[];  // From useResidents DB hook
   onConfirm: (deliveredTo: string, packageIds: string[]) => void;
   onClose: () => void;
 }
 
-export function DeliveryModal({ isOpen, apt, packages, onConfirm, onClose }: DeliveryModalProps) {
-  const residents = getResidentsByApt(apt);
+export function DeliveryModal({ isOpen, apt, packages, residentNames, onConfirm, onClose }: DeliveryModalProps) {
+  const fallback = getResidentsFallback(apt);
+  const residents = residentNames && residentNames.length > 0 ? residentNames : fallback;
   const tower = getTowerByApt(apt);
   const [customName, setCustomName] = useState('');
   const [showCustom, setShowCustom] = useState(false);

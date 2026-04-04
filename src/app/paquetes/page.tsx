@@ -286,6 +286,7 @@ export default function PaquetesPage() {
           isOpen={true}
           apt={deliverTarget.apt}
           packages={deliverPackages}
+          residentNames={getByAptDB(deliverTarget.apt).map(r => r.name)}
           onConfirm={confirmDelivery}
           onClose={() => setDeliverTarget(null)}
         />
