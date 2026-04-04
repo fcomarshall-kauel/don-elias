@@ -200,7 +200,7 @@ export default function DashboardPage() {
                 <span className="text-base font-bold text-slate-800">Lobby TV</span>
               </button>
             </Link>
-            <Link href="/whatsapp" className="contents">
+            <Link href="/mensajes" className="contents">
               <button className="hover:opacity-90 active:opacity-80 border-2 rounded-2xl shadow-sm flex flex-col items-center justify-center gap-1.5 p-2 transition-all cursor-pointer w-full relative" style={{ background: '#25D366', borderColor: '#1da851' }}>
                 <MessageCircle className="w-8 h-8 text-white shrink-0" />
                 <span className="text-base font-bold text-white">WhatsApp</span>

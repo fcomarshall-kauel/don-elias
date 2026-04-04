@@ -1,8 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { NotifyModal } from '@/components/ui/NotifyModal';
+import { AutoNotifyPrompt } from '@/components/packages/AutoNotifyPrompt';
 import { PackageForm } from '@/components/packages/PackageForm';
 import { PackageCard } from '@/components/packages/PackageCard';
 import { NumpadModal } from '@/components/packages/NumpadModal';
@@ -19,7 +20,7 @@ import { Package, MessageCircle } from 'lucide-react';
 
 export default function PaquetesPage() {
   const { pendingPackages, deliveredPackages, addPackage, markDelivered, markNotified } = usePackages();
-  const { addMessage, sendAndRecord, conversationList } = useWhatsAppMessages();
+  const { sendAndRecord, conversationList } = useWhatsAppMessages();
   const { settings } = useSettings();
 
   // Flujo de registro: tipo → numpad → proveedor
@@ -27,7 +28,10 @@ export default function PaquetesPage() {
   const [pendingRegistration, setPendingRegistration] = useState<{ recipientApt: string; type: PackageType } | null>(null);
   const [newPkgId, setNewPkgId] = useState<string | null>(null);
 
-  // Flujo de entrega
+  // Auto-notificacion post-registro
+  const [autoNotifyTarget, setAutoNotifyTarget] = useState<{ id: string; apt: string; type: PackageType } | null>(null);
+
+  // Flujo de entrega y notificacion manual
   const [deliverTarget, setDeliverTarget] = useState<{ id: string; apt: string } | null>(null);
   const [notifyTarget, setNotifyTarget] = useState<{ id: string; apt: string; type: PackageType } | null>(null);
 
@@ -43,7 +47,7 @@ export default function PaquetesPage() {
     setSelectedType(null);
   };
 
-  // Paso 3: proveedor confirma → registra
+  // Paso 3: proveedor confirma → registra → muestra auto-notify
   const handleProviderConfirm = (provider?: string, note?: string) => {
     if (!pendingRegistration) return;
     const id = addPackage({
@@ -52,24 +56,37 @@ export default function PaquetesPage() {
       note,
       receivedBy: settings.conciergerName,
     });
+    const { recipientApt, type } = pendingRegistration;
     setPendingRegistration(null);
     setNewPkgId(id);
     setTimeout(() => setNewPkgId(null), 2000);
+
+    // Abrir prompt de auto-notificacion
+    setAutoNotifyTarget({ id, apt: recipientApt, type });
   };
+
+  // Auto-notify: usuario confirma → abrir NotifyModal
+  const handleAutoNotifyConfirm = () => {
+    if (!autoNotifyTarget) return;
+    const { id, apt, type } = autoNotifyTarget;
+    setAutoNotifyTarget(null);
+    setNotifyTarget({ id, apt, type });
+  };
+
+  const handleAutoNotifyDismiss = useCallback(() => {
+    setAutoNotifyTarget(null);
+  }, []);
 
   // Comando de voz
   const handleVoiceCommand = (command: VoiceCommand) => {
     if (command.action === 'register') {
       const type = command.type ?? 'normal';
       if (command.apt) {
-        // Tiene tipo + depto → directo al modal de proveedor
         setPendingRegistration({ recipientApt: command.apt, type });
       } else {
-        // Solo tipo → abre numpad
         setSelectedType(type);
       }
     } else if (command.action === 'deliver' && command.apt) {
-      // Buscar paquete pendiente para ese depto
       const pkg = pendingPackages.find(p => p.recipientApt === command.apt);
       if (pkg) setDeliverTarget({ id: pkg.id, apt: pkg.recipientApt });
     }
@@ -132,7 +149,7 @@ export default function PaquetesPage() {
                 </span>
               )}
             </div>
-            <Link href="/whatsapp">
+            <Link href="/mensajes">
               <button className="flex items-center gap-2 bg-[#25D366] hover:bg-[#1da851] text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors cursor-pointer">
                 <MessageCircle className="w-4 h-4" />
                 Ver conversaciones
@@ -212,6 +229,17 @@ export default function PaquetesPage() {
         />
       )}
 
+      {/* Modal: auto-notificacion post-registro */}
+      {autoNotifyTarget && (
+        <AutoNotifyPrompt
+          isOpen={true}
+          apt={autoNotifyTarget.apt}
+          packageType={autoNotifyTarget.type}
+          onConfirm={handleAutoNotifyConfirm}
+          onDismiss={handleAutoNotifyDismiss}
+        />
+      )}
+
       {/* Modal: entrega */}
       {deliverTarget && (
         <DeliveryModal
@@ -222,6 +250,7 @@ export default function PaquetesPage() {
         />
       )}
 
+      {/* Modal: notificacion WhatsApp */}
       {notifyTarget && (
         <NotifyModal
           isOpen={true}

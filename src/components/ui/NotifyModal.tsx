@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Modal } from './Modal';
 import { BigButton } from './BigButton';
 import { CheckCircle, Loader2, MessageCircle, XCircle, RefreshCw } from 'lucide-react';
@@ -18,12 +18,15 @@ export function NotifyModal({ isOpen, onClose, apt, messageText, onConfirm, onSe
   const [phase, setPhase] = useState<'sending' | 'success' | 'error'>('sending');
   const [errorMsg, setErrorMsg] = useState('');
   const [isMock, setIsMock] = useState(false);
+  const hasSentRef = useRef(false);
+  const onSendRef = useRef(onSend);
+  onSendRef.current = onSend;
 
-  const doSend = useCallback(async () => {
+  const doSend = async () => {
     setPhase('sending');
     setErrorMsg('');
     try {
-      const result = await onSend();
+      const result = await onSendRef.current();
       if (result.success) {
         setPhase('success');
         setIsMock(result.mock ?? false);
@@ -35,13 +38,17 @@ export function NotifyModal({ isOpen, onClose, apt, messageText, onConfirm, onSe
       setPhase('error');
       setErrorMsg('Error de conexion');
     }
-  }, [onSend]);
+  };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !hasSentRef.current) {
+      hasSentRef.current = true;
       doSend();
     }
-  }, [isOpen, doSend]);
+    if (!isOpen) {
+      hasSentRef.current = false;
+    }
+  }, [isOpen]);
 
   const handleClose = () => {
     if (phase === 'success') {

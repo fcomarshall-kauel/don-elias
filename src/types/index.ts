@@ -45,7 +45,7 @@ export interface AppSettings {
 }
 
 // WhatsApp Business Cloud API — Meta Graph API v22.0
-export type WaEventType = 'notify' | 'delivered';
+export type WaEventType = 'notify' | 'delivered' | 'incoming';
 export type WaMessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface WhatsAppMessage {
@@ -59,6 +59,7 @@ export interface WhatsAppMessage {
   waMessageId?: string;     // ID de mensaje de Meta para tracking de estado
   status?: WaMessageStatus; // Estado de entrega
   mock?: boolean;           // true si se envió sin API real (modo desarrollo)
+  direction?: 'outgoing' | 'incoming'; // outgoing = conserje→residente, incoming = residente→conserje
 }
 
 export interface WhatsAppSendResult {

@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyWebhook, parseWebhookPayload } from '@/lib/whatsapp';
+import { supabaseAdmin } from '@/lib/supabase/server';
+import { getAptByPhone } from '@/data/residents';
 
 // ─── GET /api/whatsapp/webhook ──────────────────────────────────────────────
-// Verificacion del webhook por Meta. Se llama una sola vez al configurar.
-// Meta envia: ?hub.mode=subscribe&hub.verify_token=XXX&hub.challenge=YYY
-// Debemos responder con hub.challenge si el token es correcto.
-
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
 
@@ -17,7 +15,6 @@ export async function GET(request: NextRequest) {
 
   if (result.valid) {
     console.log('[WhatsApp Webhook] Verificacion exitosa');
-    // Meta espera el challenge como texto plano, no JSON
     return new NextResponse(result.challenge, {
       status: 200,
       headers: { 'Content-Type': 'text/plain' },
@@ -29,60 +26,58 @@ export async function GET(request: NextRequest) {
 }
 
 // ─── POST /api/whatsapp/webhook ─────────────────────────────────────────────
-// Recibe notificaciones de Meta:
-// - Status updates: sent, delivered, read, failed
-// - Mensajes entrantes de residentes
-//
-// IMPORTANTE: Meta requiere respuesta 200 rapida. Si tarda > 20s, Meta
-// reintenta y eventualmente desactiva el webhook.
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const events = parseWebhookPayload(body);
 
     if (events.length === 0) {
-      // Puede ser un ping de verificacion o formato no reconocido
       return NextResponse.json({ status: 'ok' });
     }
 
     for (const event of events) {
+      // ─── Status updates (sent → delivered → read) ─────────────────
       if (event.type === 'status' && event.status) {
         const { messageId, status, recipientId } = event.status;
-        console.log(
-          `[WhatsApp Status] msgId=${messageId} status=${status} to=${recipientId}`
-        );
+        console.log(`[WhatsApp Status] msgId=${messageId} status=${status} to=${recipientId}`);
 
-        // TODO: Cuando haya DB, actualizar estado:
-        // await db.whatsappMessages.updateMany({
-        //   where: { waMessageId: messageId },
-        //   data: { status, statusUpdatedAt: new Date() }
-        // });
-
-        // TODO: Si status === 'failed', alertar en UI del conserje
+        // Update message status in Supabase
+        await supabaseAdmin
+          .from('whatsapp_messages')
+          .update({ status })
+          .eq('wa_message_id', messageId);
       }
 
+      // ─── Incoming messages from residents ─────────────────────────
       if (event.type === 'message' && event.message) {
         const { from, text, messageId } = event.message;
-        console.log(
-          `[WhatsApp Incoming] from=${from} msgId=${messageId} text="${text.substring(0, 100)}"`
-        );
+        console.log(`[WhatsApp Incoming] from=${from} msgId=${messageId} text="${text.substring(0, 100)}"`);
 
-        // TODO: Procesar con OpenClaw/agente:
-        // await processIncomingMessage(event.message)
-        //
-        // Posibles respuestas automaticas:
-        // - "ya bajo" → marcar paquete como "residente en camino"
-        // - "gracias" → no action
-        // - "quien?" → responder con nombre del conserje
-        // - Otro → encolar para el conserje
+        // Reverse lookup: phone → apartment
+        const apt = getAptByPhone(from) ?? `?${from.slice(-4)}`;
+
+        // Save incoming message to Supabase
+        await supabaseAdmin
+          .from('whatsapp_messages')
+          .insert({
+            apt,
+            text,
+            sent_at: new Date().toISOString(),
+            event_type: 'incoming',
+            direction: 'incoming',
+            phone_number: from,
+            wa_message_id: messageId,
+            status: 'delivered',
+            mock: false,
+          });
+
+        console.log(`[WhatsApp Incoming] Saved to DB: apt=${apt}`);
       }
     }
 
     return NextResponse.json({ status: 'ok' });
   } catch (err) {
     console.error('[WhatsApp Webhook Error]', err);
-    // Aun asi responder 200 para que Meta no desactive el webhook
     return NextResponse.json({ status: 'ok' });
   }
 }

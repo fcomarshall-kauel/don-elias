@@ -1,11 +1,9 @@
 'use client';
-import { useMemo } from 'react';
-import { useLocalStorage } from './useLocalStorage';
-import { WhatsAppMessage, WhatsAppSendResult, WaEventType, PackageType } from '@/types';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { supabase } from '@/lib/supabase/client';
+import { WhatsAppMessage, WhatsAppSendResult, WaEventType, PackageType, WaMessageStatus } from '@/types';
 
 // ─── Generador de texto de mensajes ────────────────────────────────────────
-// Estos textos se usan para la UI local (burbujas de chat).
-// En producción, Meta envía el template aprobado (no este texto).
 
 export function buildNotifyText(packageType: PackageType, buildingName: string): string {
   const footer = `\n\n_Recepcion — ${buildingName}_`;
@@ -25,11 +23,76 @@ export function buildDeliveredText(buildingName: string): string {
   return `✅ Su paquete fue *retirado exitosamente*. ¡Hasta pronto!\n\n_Recepcion — ${buildingName}_`;
 }
 
-// ─── Hook principal ─────────────────────────────────────────────────────────
-export function useWhatsAppMessages() {
-  const [messages, setMessages] = useLocalStorage<WhatsAppMessage[]>('porter_whatsapp', []);
+// ─── Row mapping ────────────────────────────────────────────────────────
 
-  // Mensajes agrupados por departamento, ordenados cronologicamente
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fromRow(row: any): WhatsAppMessage {
+  return {
+    id: row.id,
+    apt: row.apt,
+    text: row.text,
+    sentAt: row.sent_at,
+    packageId: row.package_id ?? '',
+    eventType: row.event_type as WaEventType,
+    phoneNumber: row.phone_number ?? undefined,
+    waMessageId: row.wa_message_id ?? undefined,
+    status: row.status as WaMessageStatus | undefined,
+    mock: row.mock ?? undefined,
+    direction: row.direction ?? 'outgoing',
+  };
+}
+
+// ─── Hook principal ─────────────────────────────────────────────────────────
+
+export function useWhatsAppMessages() {
+  const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
+
+  // Fetch initial messages
+  useEffect(() => {
+    supabase
+      .from('whatsapp_messages')
+      .select('*')
+      .order('sent_at', { ascending: true })
+      .limit(500)
+      .then(({ data }) => {
+        if (data) setMessages(data.map(fromRow));
+      });
+  }, []);
+
+  // Realtime subscription for incoming messages and status updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('whatsapp-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'whatsapp_messages' },
+        (payload) => {
+          const msg = fromRow(payload.new);
+          setMessages(prev => {
+            // Avoid duplicates (optimistic add may already have it)
+            if (prev.some(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'whatsapp_messages' },
+        (payload) => {
+          const updated = fromRow(payload.new);
+          setMessages(prev =>
+            prev.map(m => m.id === updated.id ? updated : m)
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Mensajes agrupados por departamento
   const conversations = useMemo(() => {
     return messages.reduce<Record<string, WhatsAppMessage[]>>((acc, msg) => {
       if (!acc[msg.apt]) acc[msg.apt] = [];
@@ -38,7 +101,7 @@ export function useWhatsAppMessages() {
     }, {});
   }, [messages]);
 
-  // Lista de conversaciones para el panel izquierdo, ordenada por ultimo mensaje
+  // Lista de conversaciones para el panel izquierdo
   const conversationList = useMemo(() => {
     return Object.entries(conversations)
       .map(([apt, msgs]) => {
@@ -48,19 +111,7 @@ export function useWhatsAppMessages() {
       .sort((a, b) => new Date(b.lastMessage.sentAt).getTime() - new Date(a.lastMessage.sentAt).getTime());
   }, [conversations]);
 
-  // ─── addMessage: guarda localmente (sin enviar a API) ──────────────────
-  // Se mantiene para compatibilidad y para el historial visual.
-  const addMessage = (data: Omit<WhatsAppMessage, 'id' | 'sentAt'>) => {
-    const newMsg: WhatsAppMessage = {
-      id: crypto.randomUUID(),
-      sentAt: new Date().toISOString(),
-      ...data,
-    };
-    setMessages(prev => [...prev, newMsg]);
-  };
-
-  // ─── sendAndRecord: envía via API + guarda localmente ──────────────────
-  // Flujo: optimistic add → API call → actualiza estado
+  // ─── sendAndRecord: envía via API + guarda en Supabase ──────────────────
   const sendAndRecord = async (
     data: Omit<WhatsAppMessage, 'id' | 'sentAt' | 'status' | 'waMessageId' | 'mock'> & {
       packageType?: string;
@@ -68,26 +119,33 @@ export function useWhatsAppMessages() {
     }
   ): Promise<WhatsAppSendResult> => {
     const msgId = crypto.randomUUID();
+    const now = new Date().toISOString();
     const newMsg: WhatsAppMessage = {
       id: msgId,
-      sentAt: new Date().toISOString(),
+      sentAt: now,
       status: 'sending',
+      direction: 'outgoing',
       ...data,
     };
 
-    // Optimistic: agregar inmediatamente a localStorage
+    // Optimistic: agregar inmediatamente
     setMessages(prev => [...prev, newMsg]);
 
-    // Verificar si WhatsApp API esta habilitado
     const isEnabled = process.env.NEXT_PUBLIC_WHATSAPP_ENABLED === 'true';
 
     if (!isEnabled || !data.phoneNumber) {
-      // Modo mock: marcar como enviado sin API real
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === msgId ? { ...m, status: 'sent' as const, mock: true } : m
-        )
-      );
+      // Modo mock
+      const mockMsg = { ...newMsg, status: 'sent' as const, mock: true };
+      setMessages(prev => prev.map(m => m.id === msgId ? mockMsg : m));
+
+      // Guardar en Supabase como mock
+      supabase.from('whatsapp_messages').insert({
+        id: msgId, apt: data.apt, text: data.text, sent_at: now,
+        package_id: data.packageId || null, event_type: data.eventType,
+        direction: 'outgoing', phone_number: data.phoneNumber,
+        status: 'sent', mock: true,
+      }).then();
+
       return { success: true, mock: true };
     }
 
@@ -108,46 +166,57 @@ export function useWhatsAppMessages() {
 
       const result: WhatsAppSendResult = await res.json();
 
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === msgId
-            ? {
-                ...m,
-                status: result.success ? ('sent' as const) : ('failed' as const),
-                waMessageId: result.messageId,
-                mock: result.mock,
-              }
-            : m
-        )
-      );
+      const updatedMsg = {
+        ...newMsg,
+        status: (result.success ? 'sent' : 'failed') as WaMessageStatus,
+        waMessageId: result.messageId,
+        mock: result.mock,
+      };
+      setMessages(prev => prev.map(m => m.id === msgId ? updatedMsg : m));
+
+      // Guardar en Supabase
+      supabase.from('whatsapp_messages').insert({
+        id: msgId, apt: data.apt, text: data.text, sent_at: now,
+        package_id: data.packageId || null, event_type: data.eventType,
+        direction: 'outgoing', phone_number: data.phoneNumber,
+        wa_message_id: result.messageId, status: result.success ? 'sent' : 'failed',
+        mock: result.mock ?? false,
+      }).then();
 
       return result;
     } catch {
-      // Error de red
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === msgId ? { ...m, status: 'failed' as const } : m
-        )
-      );
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, status: 'failed' as const } : m));
+
+      supabase.from('whatsapp_messages').insert({
+        id: msgId, apt: data.apt, text: data.text, sent_at: now,
+        package_id: data.packageId || null, event_type: data.eventType,
+        direction: 'outgoing', phone_number: data.phoneNumber,
+        status: 'failed', mock: false,
+      }).then();
+
       return { success: false, error: 'Error de conexion' };
     }
   };
 
-  const getConversation = (apt: string): WhatsAppMessage[] => {
+  const getConversation = useCallback((apt: string): WhatsAppMessage[] => {
     return (conversations[apt] ?? []).slice().sort(
       (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
     );
-  };
+  }, [conversations]);
+
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+    supabase.from('whatsapp_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000').then();
+  }, []);
 
   return {
     messages,
     conversations,
     conversationList,
-    addMessage,
     sendAndRecord,
     getConversation,
+    clearMessages,
   };
 }
 
-// Re-export helpers for use in paquetes/page
 export type { WaEventType };

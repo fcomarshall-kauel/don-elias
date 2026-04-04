@@ -104,6 +104,16 @@ export function getPhonesByApt(apt: string): string[] {
   return residentsMap[apt]?.phones ?? [];
 }
 
+/** Buscar departamento por teléfono (reverse lookup para webhook) */
+export function getAptByPhone(phone: string): string | null {
+  // Normalizar: quitar + y espacios
+  const normalized = phone.replace(/[+\s]/g, '');
+  for (const [apt, data] of Object.entries(residentsMap)) {
+    if (data.phones?.includes(normalized)) return apt;
+  }
+  return null;
+}
+
 /** Buscar residentes por nombre (para búsqueda) */
 export function searchResidents(query: string): Resident[] {
   const q = query.toLowerCase();

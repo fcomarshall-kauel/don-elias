@@ -1,12 +1,13 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, Package, BookOpen, RefreshCw } from 'lucide-react';
+import { Home, Users, Package, MessageCircle, BookOpen, RefreshCw } from 'lucide-react';
 
 const tabs = [
   { href: '/',          label: 'Inicio',    icon: Home },
   { href: '/visitas',   label: 'Visitas',   icon: Users },
   { href: '/paquetes',  label: 'Paquetes',  icon: Package },
+  { href: '/mensajes',  label: 'Mensajes',  icon: MessageCircle },
   { href: '/novedades', label: 'Novedades', icon: BookOpen },
   { href: '/turno',     label: 'Turno',     icon: RefreshCw },
 ];
