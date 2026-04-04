@@ -35,6 +35,8 @@ export function AutoNotifyPrompt({
 
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
+  const onConfirmWhatsAppRef = useRef(onConfirmWhatsApp);
+  onConfirmWhatsAppRef.current = onConfirmWhatsApp;
 
   // Auto-close timer only for WhatsApp (citofono/llamada needs manual acknowledgement)
   useEffect(() => {
@@ -44,7 +46,7 @@ export function AutoNotifyPrompt({
         setCountdown(prev => {
           if (prev <= 1) {
             if (intervalRef.current) clearInterval(intervalRef.current);
-            setTimeout(() => onDismissRef.current(), 0);
+            setTimeout(() => onConfirmWhatsAppRef.current(), 0);
             return 0;
           }
           return prev - 1;
