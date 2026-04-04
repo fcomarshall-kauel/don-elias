@@ -27,7 +27,7 @@ export default function PaquetesPage() {
   const { settings } = useSettings();
   const { getLastSeen } = useSeenMessages();
   const { getByType } = useProviders();
-  const { getPhonesByApt: getPhonesByAptDB } = useResidents();
+  const { getByApt: getByAptDB, getPhonesByApt: getPhonesByAptDB } = useResidents();
 
   // Use DB phones first, fallback to hardcoded
   const getPhones = (apt: string) => {
@@ -262,15 +262,23 @@ export default function PaquetesPage() {
       )}
 
       {/* Modal: auto-notificacion post-registro */}
-      {autoNotifyTarget && (
-        <AutoNotifyPrompt
-          isOpen={true}
-          apt={autoNotifyTarget.apt}
-          packageType={autoNotifyTarget.type}
-          onConfirm={handleAutoNotifyConfirm}
-          onDismiss={handleAutoNotifyDismiss}
-        />
-      )}
+      {autoNotifyTarget && (() => {
+        const aptResidents = getByAptDB(autoNotifyTarget.apt);
+        const contactMethod = aptResidents[0]?.contactForPackages ?? 'citofono';
+        const phones = getPhones(autoNotifyTarget.apt);
+        return (
+          <AutoNotifyPrompt
+            isOpen={true}
+            apt={autoNotifyTarget.apt}
+            packageType={autoNotifyTarget.type}
+            contactMethod={contactMethod}
+            hasPhone={phones.length > 0}
+            residentNames={aptResidents.map(r => r.name)}
+            onConfirmWhatsApp={handleAutoNotifyConfirm}
+            onDismiss={handleAutoNotifyDismiss}
+          />
+        );
+      })()}
 
       {/* Modal: entrega con checkboxes */}
       {deliverTarget && deliverPackages.length > 0 && (

@@ -2,34 +2,36 @@
 import { useState, useEffect, useRef } from 'react';
 import { Modal } from '../ui/Modal';
 import { BigButton } from '../ui/BigButton';
-import { CheckCircle, MessageCircle, Clock } from 'lucide-react';
-import { getResidentsByApt, getPhonesByApt } from '@/data/residents';
+import { CheckCircle, MessageCircle, Phone, Clock } from 'lucide-react';
 import { PackageType } from '@/types';
+import { ContactMethod } from '@/hooks/useResidents';
 
 interface AutoNotifyPromptProps {
   isOpen: boolean;
   apt: string;
   packageType: PackageType;
-  onConfirm: () => void;   // Usuario quiere enviar WhatsApp
-  onDismiss: () => void;   // Usuario dice "ahora no"
+  contactMethod: ContactMethod;  // whatsapp | citofono | llamada | ninguno
+  hasPhone: boolean;
+  residentNames: string[];
+  onConfirmWhatsApp: () => void;
+  onDismiss: () => void;
 }
 
 const AUTO_CLOSE_SECONDS = 10;
 
-export function AutoNotifyPrompt({ isOpen, apt, packageType, onConfirm, onDismiss }: AutoNotifyPromptProps) {
+const typeLabels: Record<string, string> = {
+  food: 'Pedido de comida',
+  supermercado: 'Pedido de supermercado',
+  normal: 'Paquete',
+  other: 'Encomienda',
+};
+
+export function AutoNotifyPrompt({
+  isOpen, apt, packageType, contactMethod, hasPhone, residentNames,
+  onConfirmWhatsApp, onDismiss,
+}: AutoNotifyPromptProps) {
   const [countdown, setCountdown] = useState(AUTO_CLOSE_SECONDS);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const residents = getResidentsByApt(apt);
-  const phones = getPhonesByApt(apt);
-  const hasPhone = phones.length > 0;
-
-  const typeLabels: Record<string, string> = {
-    food: 'Pedido de comida',
-    supermercado: 'Pedido de supermercado',
-    normal: 'Paquete',
-    other: 'Encomienda',
-  };
 
   useEffect(() => {
     if (isOpen) {
@@ -51,6 +53,11 @@ export function AutoNotifyPrompt({ isOpen, apt, packageType, onConfirm, onDismis
 
   if (!isOpen) return null;
 
+  // Determine what to show based on contact method
+  const isWhatsApp = contactMethod === 'whatsapp';
+  const isCallOrIntercom = contactMethod === 'citofono' || contactMethod === 'llamada';
+  const isNone = contactMethod === 'ninguno';
+
   return (
     <Modal isOpen={isOpen} onClose={onDismiss}>
       <div className="flex flex-col items-center text-center py-4 gap-4">
@@ -65,20 +72,20 @@ export function AutoNotifyPrompt({ isOpen, apt, packageType, onConfirm, onDismis
           <p className="text-lg text-slate-600 mt-1">
             {typeLabels[packageType] ?? 'Paquete'} para depto. <strong>{apt}</strong>
           </p>
-          {residents.length > 0 && (
+          {residentNames.length > 0 && (
             <p className="text-sm text-slate-400 mt-1">
-              {residents.slice(0, 2).join(', ')}
-              {residents.length > 2 && ` +${residents.length - 2}`}
+              {residentNames.slice(0, 2).join(', ')}
+              {residentNames.length > 2 && ` +${residentNames.length - 2}`}
             </p>
           )}
         </div>
 
-        {/* WhatsApp prompt */}
-        {hasPhone ? (
+        {/* Action based on contact method */}
+        {isWhatsApp && hasPhone ? (
           <div className="w-full flex flex-col gap-3 mt-2">
             <BigButton
               variant="success"
-              onClick={onConfirm}
+              onClick={onConfirmWhatsApp}
               className="flex items-center justify-center gap-2 w-full"
             >
               <MessageCircle className="w-5 h-5" />
@@ -92,16 +99,44 @@ export function AutoNotifyPrompt({ isOpen, apt, packageType, onConfirm, onDismis
               Ahora no ({countdown}s)
             </button>
           </div>
-        ) : (
+        ) : isWhatsApp && !hasPhone ? (
           <div className="w-full flex flex-col gap-3 mt-2">
             <p className="text-sm text-amber-600 bg-amber-50 rounded-lg p-2">
-              Sin telefono registrado para este depto.
+              Preferencia WhatsApp pero sin telefono registrado.
             </p>
             <BigButton variant="primary" onClick={onDismiss} className="w-full">
               Entendido
             </BigButton>
           </div>
-        )}
+        ) : isCallOrIntercom ? (
+          <div className="w-full flex flex-col gap-3 mt-2">
+            <div className="bg-blue-50 rounded-xl p-4 flex items-center gap-3">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
+                <Phone className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-bold text-blue-800">
+                  {contactMethod === 'citofono' ? 'Avisar por citofono' : 'Avisar por llamada'}
+                </p>
+                <p className="text-xs text-blue-600 mt-0.5">
+                  Este depto. prefiere ser contactado por {contactMethod === 'citofono' ? 'citofono' : 'telefono'}
+                </p>
+              </div>
+            </div>
+            <BigButton variant="primary" onClick={onDismiss} className="w-full">
+              Entendido
+            </BigButton>
+          </div>
+        ) : isNone ? (
+          <div className="w-full flex flex-col gap-3 mt-2">
+            <p className="text-sm text-slate-500 bg-slate-50 rounded-lg p-2">
+              Este depto. prefiere no ser contactado.
+            </p>
+            <BigButton variant="secondary" onClick={onDismiss} className="w-full">
+              Entendido
+            </BigButton>
+          </div>
+        ) : null}
       </div>
     </Modal>
   );
