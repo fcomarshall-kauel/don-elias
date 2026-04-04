@@ -33,13 +33,17 @@ export function AutoNotifyPrompt({
   const [countdown, setCountdown] = useState(AUTO_CLOSE_SECONDS);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
   useEffect(() => {
     if (isOpen) {
       setCountdown(AUTO_CLOSE_SECONDS);
       intervalRef.current = setInterval(() => {
         setCountdown(prev => {
           if (prev <= 1) {
-            onDismiss();
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            setTimeout(() => onDismissRef.current(), 0);
             return 0;
           }
           return prev - 1;
@@ -49,7 +53,7 @@ export function AutoNotifyPrompt({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isOpen, onDismiss]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
