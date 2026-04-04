@@ -33,7 +33,7 @@ export default function PaquetesPage() {
 
   // Flujo de entrega y notificacion manual
   const [deliverTarget, setDeliverTarget] = useState<{ id: string; apt: string } | null>(null);
-  const [notifyTarget, setNotifyTarget] = useState<{ id: string; apt: string; type: PackageType } | null>(null);
+  const [notifyTarget, setNotifyTarget] = useState<{ id: string; apt: string; type: PackageType; provider?: string; note?: string } | null>(null);
 
   // Paso 1: selecciona tipo → abre numpad
   const handleSelectType = (type: PackageType) => {
@@ -94,7 +94,7 @@ export default function PaquetesPage() {
 
   const handleNotify = (id: string) => {
     const pkg = pendingPackages.find(p => p.id === id);
-    if (pkg) setNotifyTarget({ id, apt: pkg.recipientApt, type: pkg.type });
+    if (pkg) setNotifyTarget({ id, apt: pkg.recipientApt, type: pkg.type, provider: pkg.provider, note: pkg.note });
   };
 
   const handleDeliver = (id: string) => {
@@ -115,6 +115,8 @@ export default function PaquetesPage() {
         eventType: 'delivered',
         phoneNumber: phones[0],
         buildingName: settings.buildingName,
+        deliveredTo,
+        concierge: settings.conciergerName,
       });
     }
     setDeliverTarget(null);
@@ -267,6 +269,9 @@ export default function PaquetesPage() {
               phoneNumber: phones[0],
               packageType: notifyTarget.type,
               buildingName: settings.buildingName,
+              provider: notifyTarget.provider,
+              note: notifyTarget.note,
+              concierge: settings.conciergerName,
             });
           }}
           onClose={() => setNotifyTarget(null)}

@@ -2,55 +2,59 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendTemplateMessage, sendTextMessage } from '@/lib/whatsapp';
 
 // ─── Template config ────────────────────────────────────────────────────────
-// Templates creados en Meta Business Suite (WABA 1882208525632408):
+// 6 templates creados en Meta WABA 1882208525632408:
 //
-//   package_notification (id: 909975458527434)
-//     Body: "Hola, tiene un {{1}} en la recepcion de {{2}}. Favor retirarlo cuando pueda. Gracias."
-//     Footer: "Recepcion - Don Elias"
-//     Variables: {{1}} = tipo paquete, {{2}} = nombre edificio
+// Notificaciones (4 tipos, con Quick Reply "Ya bajo" / "Más tarde"):
+//   notify_food     → comida
+//   notify_package  → paquete normal
+//   notify_grocery  → supermercado
+//   notify_other    → encomienda/otro
 //
-//   package_delivered (id: 1539964744138245)
-//     Body: "Su paquete fue retirado exitosamente de la recepcion de {{1}}. Hasta pronto!"
-//     Footer: "Recepcion - Don Elias"
-//     Variables: {{1}} = nombre edificio
+// Variables compartidas: {{1}}=proveedor, {{2}}=conserje, {{3}}=obs, {{4}}=edificio
+//
+// Entrega + Recordatorio:
+//   pkg_delivered   → {{1}}=quien retiró, {{2}}=edificio
+//   pkg_reminder    → {{1}}=edificio
 
 const TEMPLATE_MAP: Record<string, { name: string; lang: string }> = {
-  package_notification: { name: 'package_notification', lang: 'es' },
-  package_delivered:    { name: 'package_delivered',    lang: 'es' },
-  hello_world:         { name: 'hello_world',          lang: 'en_US' },
-};
-
-// Mapeo de PackageType → texto legible para el template
-const PACKAGE_TYPE_LABELS: Record<string, string> = {
-  food: 'pedido de comida',
-  supermercado: 'pedido de supermercado',
-  normal: 'paquete',
-  other: 'encomienda',
+  // Notificaciones por tipo de paquete
+  food:         { name: 'notify_food',    lang: 'es' },
+  normal:       { name: 'notify_package', lang: 'es' },
+  supermercado: { name: 'notify_grocery', lang: 'es' },
+  other:        { name: 'notify_other',   lang: 'es' },
+  // Entrega y recordatorio
+  delivered:    { name: 'pkg_delivered',  lang: 'es' },
+  reminder:     { name: 'pkg_reminder',  lang: 'es' },
+  // Fallback
+  hello_world:  { name: 'hello_world',   lang: 'en_US' },
 };
 
 // ─── POST /api/whatsapp/send ────────────────────────────────────────────────
 
 interface SendRequest {
   to: string;              // "56912345678"
-  apt: string;             // "15B" — para logging
-  templateName?: string;   // override directo del template
-  languageCode?: string;   // override del idioma
+  apt: string;             // "15B"
+  templateName?: string;   // override directo
+  languageCode?: string;
   components?: Array<{
     type: 'body' | 'header' | 'button';
     parameters: Array<{ type: 'text'; text: string }>;
   }>;
   text?: string;           // Texto libre (solo dentro de ventana 24hrs)
-  packageId: string;       // Para trazabilidad
-  eventType?: string;      // 'notify' | 'delivered'
+  packageId: string;
+  eventType?: string;      // 'notify' | 'delivered' | 'reminder'
   packageType?: string;    // 'food' | 'normal' | 'other' | 'supermercado'
-  buildingName?: string;   // Nombre del edificio para variables
+  buildingName?: string;
+  provider?: string;       // "Mercado Libre", "Uber Eats", etc.
+  note?: string;           // "caja frágil", "3 bolsas"
+  concierge?: string;      // "Claudio"
+  deliveredTo?: string;    // "Juan Pérez" (para entrega)
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: SendRequest = await request.json();
 
-    // Validar campos requeridos
     if (!body.to || !body.apt || !body.packageId) {
       return NextResponse.json(
         { success: false, error: 'Campos requeridos: to, apt, packageId' },
@@ -58,10 +62,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validar formato de telefono chileno
     if (!/^56\d{9}$/.test(body.to)) {
       return NextResponse.json(
-        { success: false, error: 'Formato de telefono invalido. Esperado: 56XXXXXXXXX (11 digitos)' },
+        { success: false, error: 'Formato de teléfono inválido. Esperado: 56XXXXXXXXX (11 dígitos)' },
         { status: 400 }
       );
     }
@@ -69,20 +72,25 @@ export async function POST(request: NextRequest) {
     let result;
 
     if (body.text) {
-      // Texto libre: solo funciona dentro de ventana de 24hrs (gratis)
       result = await sendTextMessage({ to: body.to, text: body.text });
     } else {
-      // Template message: resolver template + construir components con variables
-      const templateKey = body.templateName
-        ?? (body.eventType === 'notify' ? 'package_notification' : undefined)
-        ?? (body.eventType === 'delivered' ? 'package_delivered' : undefined)
-        ?? 'hello_world';
+      // Resolver template key
+      let templateKey: string;
+      if (body.templateName) {
+        templateKey = body.templateName;
+      } else if (body.eventType === 'notify' && body.packageType) {
+        templateKey = body.packageType; // food, normal, supermercado, other
+      } else if (body.eventType === 'delivered') {
+        templateKey = 'delivered';
+      } else if (body.eventType === 'reminder') {
+        templateKey = 'reminder';
+      } else {
+        templateKey = 'hello_world';
+      }
 
       const mapped = TEMPLATE_MAP[templateKey];
       const templateName = mapped?.name ?? templateKey;
       const languageCode = body.languageCode ?? mapped?.lang ?? 'es';
-
-      // Auto-construir components si no se pasan explicitamente
       const components = body.components ?? buildTemplateComponents(templateKey, body);
 
       result = await sendTemplateMessage({
@@ -92,11 +100,9 @@ export async function POST(request: NextRequest) {
         components,
       });
 
-      // Si el template custom falla (pendiente o rechazado), fallback a hello_world
+      // Fallback a hello_world si el template custom falla
       if (!result.success && templateKey !== 'hello_world') {
-        console.warn(
-          `[WhatsApp] Template "${templateName}" fallo, intentando hello_world como fallback`
-        );
+        console.warn(`[WhatsApp] Template "${templateName}" falló, fallback a hello_world`);
         result = await sendTemplateMessage({
           to: body.to,
           templateName: 'hello_world',
@@ -106,10 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 502 }
-      );
+      return NextResponse.json({ success: false, error: result.error }, { status: 502 });
     }
 
     console.log(
@@ -123,47 +126,60 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error('[WhatsApp Send Route Error]', err);
-    return NextResponse.json(
-      { success: false, error: 'Error interno del servidor' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Error interno del servidor' }, { status: 500 });
   }
 }
 
-// ─── Auto-build template components ─────────────────────────────────────────
-// Construye los parametros de variables para cada template conocido.
+// ─── Build template components (variables) ──────────────────────────────────
 
 function buildTemplateComponents(
   templateKey: string,
   body: SendRequest
 ): Array<{ type: 'body'; parameters: Array<{ type: 'text'; text: string }> }> | undefined {
   const building = body.buildingName ?? 'el edificio';
+  const concierge = body.concierge ?? 'el conserje';
 
-  switch (templateKey) {
-    case 'package_notification': {
-      const typeLabel = PACKAGE_TYPE_LABELS[body.packageType ?? 'normal'] ?? 'paquete';
-      return [
-        {
-          type: 'body',
-          parameters: [
-            { type: 'text', text: typeLabel },
-            { type: 'text', text: building },
-          ],
-        },
-      ];
-    }
+  // Notificaciones: {{1}}=proveedor, {{2}}=conserje, {{3}}=obs, {{4}}=edificio
+  if (['food', 'normal', 'supermercado', 'other'].includes(templateKey)) {
+    const providerText = body.provider && body.provider !== 'other' && body.provider !== 'otro'
+      ? `De: ${body.provider}. `
+      : 'Puede retirarlo en horario de conserjería. ';
 
-    case 'package_delivered':
-      return [
-        {
-          type: 'body',
-          parameters: [
-            { type: 'text', text: building },
-          ],
-        },
-      ];
+    const noteText = body.note
+      ? `Obs: ${body.note}.`
+      : ' ';
 
-    default:
-      return undefined; // hello_world u otros no necesitan variables
+    return [{
+      type: 'body',
+      parameters: [
+        { type: 'text', text: providerText },
+        { type: 'text', text: concierge },
+        { type: 'text', text: noteText },
+        { type: 'text', text: building },
+      ],
+    }];
   }
+
+  // Entrega: {{1}}=quien retiró, {{2}}=edificio
+  if (templateKey === 'delivered') {
+    return [{
+      type: 'body',
+      parameters: [
+        { type: 'text', text: body.deliveredTo ?? 'el residente' },
+        { type: 'text', text: building },
+      ],
+    }];
+  }
+
+  // Recordatorio: {{1}}=edificio
+  if (templateKey === 'reminder') {
+    return [{
+      type: 'body',
+      parameters: [
+        { type: 'text', text: building },
+      ],
+    }];
+  }
+
+  return undefined;
 }

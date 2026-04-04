@@ -116,6 +116,10 @@ export function useWhatsAppMessages() {
     data: Omit<WhatsAppMessage, 'id' | 'sentAt' | 'status' | 'waMessageId' | 'mock'> & {
       packageType?: string;
       buildingName?: string;
+      provider?: string;
+      note?: string;
+      concierge?: string;
+      deliveredTo?: string;
     }
   ): Promise<WhatsAppSendResult> => {
     const msgId = crypto.randomUUID();
@@ -161,6 +165,10 @@ export function useWhatsAppMessages() {
           packageId: data.packageId,
           packageType: data.packageType,
           buildingName: data.buildingName,
+          provider: data.provider,
+          note: data.note,
+          concierge: data.concierge,
+          deliveredTo: data.deliveredTo,
         }),
       });
 
