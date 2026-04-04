@@ -1,36 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { Package } from '@/types';
+import { useState, useEffect, useMemo } from 'react';
+import { usePackages } from '@/hooks/usePackages';
+import { useSettings } from '@/hooks/useSettings';
 import { CheckCircle } from 'lucide-react';
-
-interface StoredPackage extends Package {}
-
-function loadPackagesByUnit(): Record<string, StoredPackage[]> {
-  try {
-    const raw = localStorage.getItem('porter_packages');
-    if (!raw) return {};
-    const all: StoredPackage[] = JSON.parse(raw);
-    return all
-      .filter(p => p.status === 'pending')
-      .reduce<Record<string, StoredPackage[]>>((acc, pkg) => {
-        if (!acc[pkg.recipientApt]) acc[pkg.recipientApt] = [];
-        acc[pkg.recipientApt].push(pkg);
-        return acc;
-      }, {});
-  } catch {
-    return {};
-  }
-}
-
-function loadBuildingName(): string {
-  try {
-    const raw = localStorage.getItem('porter_settings');
-    if (!raw) return 'Edificio';
-    return JSON.parse(raw).buildingName ?? 'Edificio';
-  } catch {
-    return 'Edificio';
-  }
-}
 
 function LobbyTime() {
   const [time, setTime] = useState('');
@@ -56,27 +28,20 @@ function LobbyTime() {
 }
 
 export default function LobbyPage() {
-  const [packagesByUnit, setPackagesByUnit] = useState<Record<string, StoredPackage[]>>({});
-  const [buildingName, setBuildingName] = useState('Edificio');
+  const { packagesByUnit } = usePackages();
+  const { settings } = useSettings();
 
-  useEffect(() => {
-    const load = () => {
-      setPackagesByUnit(loadPackagesByUnit());
-      setBuildingName(loadBuildingName());
-    };
-    load();
-    const t = setInterval(load, 30000);
-    return () => clearInterval(t);
-  }, []);
-
-  const units = Object.keys(packagesByUnit).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+  const units = useMemo(
+    () => Object.keys(packagesByUnit).sort((a, b) => a.localeCompare(b, 'es', { numeric: true })),
+    [packagesByUnit]
+  );
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col">
       {/* Header */}
       <header className="px-8 py-6 flex items-center justify-between border-b border-slate-700">
         <div>
-          <h1 className="text-3xl font-bold text-white">{buildingName}</h1>
+          <h1 className="text-3xl font-bold text-white">{settings.buildingName}</h1>
           <p className="text-slate-400 text-lg mt-1">Recepción de Paquetes</p>
         </div>
         <LobbyTime />
@@ -133,7 +98,7 @@ export default function LobbyPage() {
 
       <footer className="px-8 py-4 border-t border-slate-700 flex items-center justify-between">
         <p className="text-slate-600 text-sm">PorterOS · Sistema de Portería</p>
-        <p className="text-slate-600 text-sm">Actualizado cada 30 segundos</p>
+        <p className="text-slate-600 text-sm">Datos en tiempo real</p>
       </footer>
     </div>
   );

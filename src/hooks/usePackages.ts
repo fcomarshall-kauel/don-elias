@@ -33,6 +33,29 @@ export function usePackages() {
       .then(({ data }) => {
         if (data) setPackages(data.map(fromRow));
       });
+
+    // Realtime: update when packages change (for Lobby TV and multi-device)
+    const channel = supabase
+      .channel('packages-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'packages' },
+        (payload) => {
+          const pkg = fromRow(payload.new);
+          setPackages(prev => prev.some(p => p.id === pkg.id) ? prev : [pkg, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'packages' },
+        (payload) => {
+          const updated = fromRow(payload.new);
+          setPackages(prev => prev.map(p => p.id === updated.id ? updated : p));
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const pendingPackages = useMemo(
@@ -79,16 +102,18 @@ export function usePackages() {
     return id;
   };
 
-  const markDelivered = (id: string, deliveredTo?: string) => {
+  const markDelivered = (ids: string | string[], deliveredTo?: string) => {
     const now = new Date().toISOString();
+    const idArray = Array.isArray(ids) ? ids : [ids];
+    const idSet = new Set(idArray);
     setPackages(prev =>
-      prev.map(p => p.id === id ? { ...p, status: 'delivered' as const, deliveredAt: now, deliveredTo } : p)
+      prev.map(p => idSet.has(p.id) ? { ...p, status: 'delivered' as const, deliveredAt: now, deliveredTo } : p)
     );
     supabase.from('packages').update({
       status: 'delivered',
       delivered_at: now,
       delivered_to: deliveredTo,
-    }).eq('id', id).then();
+    }).in('id', idArray).then();
   };
 
   const markNotified = (id: string) => {

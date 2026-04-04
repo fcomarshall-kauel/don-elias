@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { NotifyModal } from '@/components/ui/NotifyModal';
@@ -13,15 +13,17 @@ import { VoiceButton } from '@/components/packages/VoiceButton';
 import { usePackages } from '@/hooks/usePackages';
 import { useWhatsAppMessages, buildNotifyText, buildDeliveredText } from '@/hooks/useWhatsAppMessages';
 import { useSettings } from '@/hooks/useSettings';
+import { useSeenMessages } from '@/hooks/useSeenMessages';
 import { getPhonesByApt } from '@/data/residents';
 import { PackageType } from '@/types';
 import { VoiceCommand } from '@/lib/voiceParser';
-import { Package, MessageCircle } from 'lucide-react';
+import { Package as PkgIcon, MessageCircle } from 'lucide-react';
 
 export default function PaquetesPage() {
   const { pendingPackages, deliveredPackages, addPackage, markDelivered, markNotified } = usePackages();
-  const { sendAndRecord, conversationList } = useWhatsAppMessages();
+  const { messages, sendAndRecord, conversationList } = useWhatsAppMessages();
   const { settings } = useSettings();
+  const { getLastSeen } = useSeenMessages();
 
   // Flujo de registro: tipo → numpad → proveedor
   const [selectedType, setSelectedType] = useState<PackageType | null>(null);
@@ -31,14 +33,26 @@ export default function PaquetesPage() {
   // Auto-notificacion post-registro
   const [autoNotifyTarget, setAutoNotifyTarget] = useState<{ id: string; apt: string; type: PackageType } | null>(null);
 
-  // Flujo de entrega y notificacion manual
-  const [deliverTarget, setDeliverTarget] = useState<{ id: string; apt: string } | null>(null);
+  // Flujo de entrega y notificacion
+  const [deliverTarget, setDeliverTarget] = useState<{ apt: string; packageIds: string[] } | null>(null);
   const [notifyTarget, setNotifyTarget] = useState<{ id: string; apt: string; type: PackageType; provider?: string; note?: string } | null>(null);
 
+  // Group pending packages by apt
+  const groupedByApt = useMemo(() => {
+    const groups: Record<string, typeof pendingPackages> = {};
+    for (const pkg of pendingPackages) {
+      if (!groups[pkg.recipientApt]) groups[pkg.recipientApt] = [];
+      groups[pkg.recipientApt].push(pkg);
+    }
+    return Object.entries(groups).sort(([, a], [, b]) => {
+      const latestA = Math.max(...a.map(p => new Date(p.receivedAt).getTime()));
+      const latestB = Math.max(...b.map(p => new Date(p.receivedAt).getTime()));
+      return latestB - latestA;
+    });
+  }, [pendingPackages]);
+
   // Paso 1: selecciona tipo → abre numpad
-  const handleSelectType = (type: PackageType) => {
-    setSelectedType(type);
-  };
+  const handleSelectType = (type: PackageType) => setSelectedType(type);
 
   // Paso 2: numpad confirma depto → abre proveedor
   const handleNumpadConfirm = (apt: string) => {
@@ -60,8 +74,6 @@ export default function PaquetesPage() {
     setPendingRegistration(null);
     setNewPkgId(id);
     setTimeout(() => setNewPkgId(null), 2000);
-
-    // Abrir prompt de auto-notificacion
     setAutoNotifyTarget({ id, apt: recipientApt, type });
   };
 
@@ -70,7 +82,9 @@ export default function PaquetesPage() {
     if (!autoNotifyTarget) return;
     const { id, apt, type } = autoNotifyTarget;
     setAutoNotifyTarget(null);
-    setNotifyTarget({ id, apt, type });
+    // Find the package to get provider/note
+    const pkg = pendingPackages.find(p => p.id === id);
+    setNotifyTarget({ id, apt, type, provider: pkg?.provider, note: pkg?.note });
   };
 
   const handleAutoNotifyDismiss = useCallback(() => {
@@ -87,31 +101,28 @@ export default function PaquetesPage() {
         setSelectedType(type);
       }
     } else if (command.action === 'deliver' && command.apt) {
-      const pkg = pendingPackages.find(p => p.recipientApt === command.apt);
-      if (pkg) setDeliverTarget({ id: pkg.id, apt: pkg.recipientApt });
+      const pkgs = pendingPackages.filter(p => p.recipientApt === command.apt);
+      if (pkgs.length > 0) {
+        setDeliverTarget({ apt: command.apt, packageIds: pkgs.map(p => p.id) });
+      }
     }
   };
 
-  const handleNotify = (id: string) => {
-    const pkg = pendingPackages.find(p => p.id === id);
-    if (pkg) setNotifyTarget({ id, apt: pkg.recipientApt, type: pkg.type, provider: pkg.provider, note: pkg.note });
+  // Deliver from grouped card
+  const handleDeliver = (apt: string, packageIds: string[]) => {
+    setDeliverTarget({ apt, packageIds });
   };
 
-  const handleDeliver = (id: string) => {
-    const pkg = pendingPackages.find(p => p.id === id);
-    if (pkg) setDeliverTarget({ id, apt: pkg.recipientApt });
-  };
-
-  const confirmDelivery = (deliveredTo: string) => {
+  const confirmDelivery = (deliveredTo: string, packageIds: string[]) => {
     if (!deliverTarget) return;
-    const pkg = pendingPackages.find(p => p.id === deliverTarget.id);
-    markDelivered(deliverTarget.id, deliveredTo);
-    if (pkg) {
-      const phones = getPhonesByApt(pkg.recipientApt);
+    markDelivered(packageIds, deliveredTo);
+    // Send delivery notification for first package
+    const phones = getPhonesByApt(deliverTarget.apt);
+    if (phones[0]) {
       sendAndRecord({
-        apt: pkg.recipientApt,
+        apt: deliverTarget.apt,
         text: buildDeliveredText(settings.buildingName),
-        packageId: pkg.id,
+        packageId: packageIds[0],
         eventType: 'delivered',
         phoneNumber: phones[0],
         buildingName: settings.buildingName,
@@ -125,6 +136,11 @@ export default function PaquetesPage() {
   const notifyMessageText = notifyTarget
     ? buildNotifyText(notifyTarget.type, settings.buildingName)
     : '';
+
+  // Get packages for delivery modal
+  const deliverPackages = deliverTarget
+    ? pendingPackages.filter(p => deliverTarget.packageIds.includes(p.id))
+    : [];
 
   return (
     <AppShell>
@@ -140,7 +156,7 @@ export default function PaquetesPage() {
           </div>
         </div>
 
-        {/* Right: pending packages grid */}
+        {/* Right: pending packages grid (grouped by apt) */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-4 shrink-0">
             <div className="flex items-center gap-3">
@@ -151,7 +167,7 @@ export default function PaquetesPage() {
                 </span>
               )}
             </div>
-            <Link href="/mensajes">
+            <Link href="/mensajes?from=paquetes">
               <button className="flex items-center gap-2 bg-[#25D366] hover:bg-[#1da851] text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors cursor-pointer">
                 <MessageCircle className="w-4 h-4" />
                 Ver conversaciones
@@ -165,21 +181,24 @@ export default function PaquetesPage() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {pendingPackages.length === 0 ? (
+            {groupedByApt.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-4">
-                <Package className="w-16 h-16 text-slate-300" />
+                <PkgIcon className="w-16 h-16 text-slate-300" />
                 <p className="text-xl font-semibold">Sin paquetes pendientes</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
-                {pendingPackages.map(pkg => (
-                  <PackageCard
-                    key={pkg.id}
-                    pkg={pkg}
-                    isNew={pkg.id === newPkgId}
-                    onNotify={handleNotify}
-                    onDeliver={handleDeliver}
-                  />
+              <div className="flex flex-wrap gap-2 items-start content-start">
+                {groupedByApt.map(([apt, pkgs]) => (
+                  <div key={apt} className="w-48">
+                    <PackageCard
+                      apt={apt}
+                      packages={pkgs}
+                      messages={messages}
+                      isNew={newPkgId}
+                      lastSeenAt={getLastSeen(apt)}
+                      onDeliver={handleDeliver}
+                    />
+                  </div>
                 ))}
               </div>
             )}
@@ -242,11 +261,12 @@ export default function PaquetesPage() {
         />
       )}
 
-      {/* Modal: entrega */}
-      {deliverTarget && (
+      {/* Modal: entrega con checkboxes */}
+      {deliverTarget && deliverPackages.length > 0 && (
         <DeliveryModal
           isOpen={true}
           apt={deliverTarget.apt}
+          packages={deliverPackages}
           onConfirm={confirmDelivery}
           onClose={() => setDeliverTarget(null)}
         />
