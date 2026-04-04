@@ -85,7 +85,7 @@ export default function MiDeptoPage() {
 
   if (saved) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6" style={{ position: 'fixed', inset: 0, overflowY: 'auto' }}>
         <div className="bg-white rounded-3xl shadow-lg p-8 text-center max-w-sm w-full">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-10 h-10 text-green-500" />
@@ -106,7 +106,7 @@ export default function MiDeptoPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 overflow-y-auto">
+    <div className="min-h-screen bg-slate-50 overflow-y-auto" style={{ position: 'fixed', inset: 0, overflowY: 'auto' }}>
       <div className="max-w-md mx-auto py-8 px-4">
         <div className="bg-white rounded-3xl shadow-lg p-6">
           <div className="text-center mb-6">
