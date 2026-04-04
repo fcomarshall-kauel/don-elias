@@ -102,8 +102,7 @@ export function AutoNotifyPrompt({
               onClick={onDismiss}
               className="text-slate-400 text-sm hover:text-slate-600 transition-colors flex items-center justify-center gap-1"
             >
-              <Clock className="w-3 h-3" />
-              Ahora no ({countdown}s)
+              Cancelar ({countdown}s)
             </button>
           </div>
         ) : isWhatsApp && !hasPhone ? (
