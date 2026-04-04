@@ -1,9 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
+import { BigButton } from '@/components/ui/BigButton';
 import { getResidentsByApt, getTowerByApt } from '@/data/residents';
 import { DictationInput } from '@/components/ui/DictationInput';
-import { CheckCircle, User, Package as PkgIcon, UtensilsCrossed, ShoppingCart, MoreHorizontal } from 'lucide-react';
+import { CheckCircle, User } from 'lucide-react';
 import { Package } from '@/types';
 
 const typeEmoji: Record<string, string> = {
@@ -29,6 +30,22 @@ export function DeliveryModal({ isOpen, apt, packages, onConfirm, onClose }: Del
   const [showCustom, setShowCustom] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(packages.map(p => p.id)));
 
+  // Success phase
+  const [phase, setPhase] = useState<'select' | 'success'>('select');
+  const [deliveredToName, setDeliveredToName] = useState('');
+  const [autoCloseProgress, setAutoCloseProgress] = useState(0);
+
+  // Reset on open
+  useEffect(() => {
+    if (isOpen) {
+      setPhase('select');
+      setDeliveredToName('');
+      setCustomName('');
+      setShowCustom(false);
+      setSelectedIds(new Set(packages.map(p => p.id)));
+    }
+  }, [isOpen, packages]);
+
   const togglePkg = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -38,13 +55,81 @@ export function DeliveryModal({ isOpen, apt, packages, onConfirm, onClose }: Del
     });
   };
 
-  const handleConfirm = (name: string) => {
+  // Auto-close timer for success phase
+  useEffect(() => {
+    if (phase !== 'success') return;
+    setAutoCloseProgress(0);
+    const duration = 3000;
+    const interval = 30;
+    const step = (interval / duration) * 100;
+    const timer = setInterval(() => {
+      setAutoCloseProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(timer);
+          return 100;
+        }
+        return prev + step;
+      });
+    }, interval);
+    const timeout = setTimeout(() => {
+      handleFinalConfirm();
+    }, duration);
+    return () => { clearInterval(timer); clearTimeout(timeout); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  const handleSelectPerson = (name: string) => {
     if (selectedIds.size === 0) return;
-    onConfirm(name, Array.from(selectedIds));
+    setDeliveredToName(name);
+    setPhase('success');
+  };
+
+  const handleFinalConfirm = () => {
+    onConfirm(deliveredToName, Array.from(selectedIds));
     setCustomName('');
     setShowCustom(false);
   };
 
+  // ─── Success phase ────────────────────────────────────────────────
+  if (phase === 'success') {
+    const count = selectedIds.size;
+    return (
+      <Modal isOpen={isOpen} onClose={onClose}>
+        <div className="flex flex-col items-center text-center py-6 gap-4">
+          <div className="relative">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center animate-[scaleIn_0.3s_ease-out]">
+              <CheckCircle className="w-12 h-12 text-[#00875A]" />
+            </div>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-green-700">Entrega confirmada</p>
+            <p className="text-slate-500 mt-2">
+              {count} {count === 1 ? 'paquete entregado' : 'paquetes entregados'} a
+            </p>
+            <p className="text-lg font-bold text-slate-800 mt-1">{deliveredToName}</p>
+            <p className="text-sm text-slate-400 mt-1">Depto. {apt}</p>
+          </div>
+          <button
+            onClick={handleFinalConfirm}
+            className="mt-2 w-full max-w-52 relative overflow-hidden bg-green-100 text-[#00875A] font-bold text-base py-3 rounded-2xl cursor-pointer hover:bg-green-200 transition-colors"
+          >
+            {/* Fill progress */}
+            <div
+              className="absolute inset-0 bg-[#00875A] transition-none rounded-2xl"
+              style={{ width: `${autoCloseProgress}%`, opacity: 0.15 }}
+            />
+            <div
+              className="absolute bottom-0 left-0 h-1 bg-[#00875A] rounded-full transition-none"
+              style={{ width: `${autoCloseProgress}%` }}
+            />
+            <span className="relative z-10">Listo ✓</span>
+          </button>
+        </div>
+      </Modal>
+    );
+  }
+
+  // ─── Select phase ─────────────────────────────────────────────────
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Entregar — Depto. ${apt}`}>
       {tower && (
@@ -99,7 +184,7 @@ export function DeliveryModal({ isOpen, apt, packages, onConfirm, onClose }: Del
               {residents.map((name) => (
                 <button
                   key={name}
-                  onClick={() => handleConfirm(name)}
+                  onClick={() => handleSelectPerson(name)}
                   className="flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl border-2 border-slate-200 bg-slate-50 hover:border-[#00875A] hover:bg-green-50 transition-colors cursor-pointer group"
                 >
                   <User className="w-5 h-5 text-slate-400 group-hover:text-[#00875A] shrink-0" />
@@ -129,11 +214,11 @@ export function DeliveryModal({ isOpen, apt, packages, onConfirm, onClose }: Del
                 placeholder="Nombre de quien retira"
                 className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-[#00875A]"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && customName.trim()) handleConfirm(customName.trim());
+                  if (e.key === 'Enter' && customName.trim()) handleSelectPerson(customName.trim());
                 }}
               />
               <button
-                onClick={() => customName.trim() && handleConfirm(customName.trim())}
+                onClick={() => customName.trim() && handleSelectPerson(customName.trim())}
                 disabled={!customName.trim()}
                 className="bg-[#00875A] hover:bg-[#006644] disabled:bg-slate-300 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-colors cursor-pointer shrink-0"
               >

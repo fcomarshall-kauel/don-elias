@@ -4,11 +4,18 @@ import { ChevronLeft } from 'lucide-react';
 import { Clock } from '@/components/ui/Clock';
 
 const PAGE_TITLES: Record<string, string> = {
-  '/visitas':   'Registro de Visitas',
-  '/paquetes':  'Control de Paquetes',
-  '/mensajes':  'Mensajes WhatsApp',
-  '/novedades': 'Libro de Novedades',
-  '/turno':     'Cambio de Turno',
+  '/visitas':             'Registro de Visitas',
+  '/paquetes':            'Control de Paquetes',
+  '/mensajes':            'Mensajes WhatsApp',
+  '/novedades':           'Libro de Novedades',
+  '/turno':               'Cambio de Turno',
+  '/admin':               'Configuración',
+  '/admin/edificio':      'Configuración del Edificio',
+  '/admin/residentes':    'Gestión de Residentes',
+  '/admin/conserjes':     'Gestión de Conserjes',
+  '/admin/proveedores':   'Gestión de Proveedores',
+  '/admin/whatsapp':      'WhatsApp Business',
+  '/admin/qr':            'QR para Residentes',
 };
 
 export function TopBar() {

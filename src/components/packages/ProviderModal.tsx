@@ -5,7 +5,8 @@ import { PackageType } from '@/types';
 import { DictationInput } from '@/components/ui/DictationInput';
 import { CheckCircle } from 'lucide-react';
 
-const PROVIDERS: Record<PackageType, string[]> = {
+// Fallback providers if DB is empty
+const FALLBACK_PROVIDERS: Record<PackageType, string[]> = {
   normal: ['Mercado Libre', 'Falabella', 'Ripley', 'Paris', 'Amazon', 'AliExpress', 'Shein', 'Correos de Chile', 'Chilexpress', 'Starken', 'Blue Express', 'DHL', 'FedEx'],
   supermercado: ['Jumbo', 'Lider', 'Santa Isabel', 'Unimarc', 'Tottus', 'Cornershop'],
   food: ['Uber Eats', 'Rappi', 'PedidosYa', 'Justo'],
@@ -23,16 +24,17 @@ interface ProviderModalProps {
   isOpen: boolean;
   apt: string;
   type: PackageType;
+  providerNames?: string[];  // From useProviders().getByType(type)
   onConfirm: (provider?: string, note?: string) => void;
   onClose: () => void;
 }
 
-export function ProviderModal({ isOpen, apt, type, onConfirm, onClose }: ProviderModalProps) {
+export function ProviderModal({ isOpen, apt, type, providerNames, onConfirm, onClose }: ProviderModalProps) {
   const [selected, setSelected] = useState('');
   const [note, setNote] = useState('');
   const [phase, setPhase] = useState<'form' | 'success'>('form');
 
-  const providers = PROVIDERS[type];
+  const providers = providerNames && providerNames.length > 0 ? providerNames : FALLBACK_PROVIDERS[type];
 
   const handleConfirm = () => {
     const provider = selected || undefined;

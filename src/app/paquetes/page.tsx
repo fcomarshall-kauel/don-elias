@@ -14,6 +14,8 @@ import { usePackages } from '@/hooks/usePackages';
 import { useWhatsAppMessages, buildNotifyText, buildDeliveredText } from '@/hooks/useWhatsAppMessages';
 import { useSettings } from '@/hooks/useSettings';
 import { useSeenMessages } from '@/hooks/useSeenMessages';
+import { useProviders } from '@/hooks/useProviders';
+import { useResidents } from '@/hooks/useResidents';
 import { getPhonesByApt } from '@/data/residents';
 import { PackageType } from '@/types';
 import { VoiceCommand } from '@/lib/voiceParser';
@@ -24,6 +26,14 @@ export default function PaquetesPage() {
   const { messages, sendAndRecord, conversationList } = useWhatsAppMessages();
   const { settings } = useSettings();
   const { getLastSeen } = useSeenMessages();
+  const { getByType } = useProviders();
+  const { getPhonesByApt: getPhonesByAptDB } = useResidents();
+
+  // Use DB phones first, fallback to hardcoded
+  const getPhones = (apt: string) => {
+    const dbPhones = getPhonesByAptDB(apt);
+    return dbPhones.length > 0 ? dbPhones : getPhonesByApt(apt);
+  };
 
   // Flujo de registro: tipo → numpad → proveedor
   const [selectedType, setSelectedType] = useState<PackageType | null>(null);
@@ -117,7 +127,7 @@ export default function PaquetesPage() {
     if (!deliverTarget) return;
     markDelivered(packageIds, deliveredTo);
     // Send delivery notification for first package
-    const phones = getPhonesByApt(deliverTarget.apt);
+    const phones = getPhones(deliverTarget.apt);
     if (phones[0]) {
       sendAndRecord({
         apt: deliverTarget.apt,
@@ -245,6 +255,7 @@ export default function PaquetesPage() {
           isOpen={true}
           apt={pendingRegistration.recipientApt}
           type={pendingRegistration.type}
+          providerNames={getByType(pendingRegistration.type)}
           onConfirm={handleProviderConfirm}
           onClose={() => setPendingRegistration(null)}
         />
@@ -280,7 +291,7 @@ export default function PaquetesPage() {
           messageText={notifyMessageText}
           onConfirm={() => markNotified(notifyTarget.id)}
           onSend={async () => {
-            const phones = getPhonesByApt(notifyTarget.apt);
+            const phones = getPhones(notifyTarget.apt);
             return sendAndRecord({
               apt: notifyTarget.apt,
               text: notifyMessageText,
