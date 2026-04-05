@@ -15,7 +15,7 @@ export function useVisits() {
     [visits]
   );
 
-  const addVisit = (data: { visitorName: string; destinationApt: string; type: VisitType; companyOrWorkType?: string }) => {
+  const addVisit = (data: { visitorName: string; destinationApt: string; type: VisitType; companyOrWorkType?: string; vehiclePlate?: string; parkingSpot?: string }) => {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const newVisit: Visit = { id, ...data, checkedInAt: now, status: 'active' };
@@ -23,6 +23,7 @@ export function useVisits() {
     supabase.from('visits').insert({
       id, visitor_name: data.visitorName, destination_apt: data.destinationApt,
       type: data.type, company_or_work_type: data.companyOrWorkType,
+      vehicle_plate: data.vehiclePlate, parking_spot: data.parkingSpot,
       checked_in_at: now, status: 'active',
     }).then();
   };

@@ -7,6 +7,7 @@ import { VisitVoiceButton } from '@/components/visits/VisitVoiceButton';
 import { VisitCard } from '@/components/visits/VisitCard';
 import { NumpadModal } from '@/components/ui/NumpadModal';
 import { useVisits } from '@/hooks/useVisits';
+import { useParkingSpots } from '@/hooks/useParkingSpots';
 import { VisitType } from '@/types';
 import { VisitVoiceCommand } from '@/lib/voiceParser';
 import { Users, User, Wrench } from 'lucide-react';
@@ -20,6 +21,7 @@ const TYPE_NUMPAD: Record<VisitType, { label: string; icon: LucideIcon; color: s
 
 export default function VisitasPage() {
   const { activeVisits, recentVisits, addVisit, checkOut } = useVisits();
+  const { activeSpots, occupiedSpots } = useParkingSpots();
 
   // Flujo: tipo → numpad → detalle
   const [selectedType, setSelectedType] = useState<VisitType | null>(null);
@@ -38,13 +40,15 @@ export default function VisitasPage() {
   };
 
   // Paso 3: detalle confirma → registra
-  const handleDetailConfirm = (name: string, company?: string) => {
+  const handleDetailConfirm = (name: string, company?: string, vehiclePlate?: string, parkingSpot?: string) => {
     if (!pendingVisit) return;
     addVisit({
       visitorName: name,
       destinationApt: pendingVisit.apt,
       type: pendingVisit.type,
       companyOrWorkType: company,
+      vehiclePlate,
+      parkingSpot,
     });
     setPendingVisit(null);
   };
@@ -141,6 +145,8 @@ export default function VisitasPage() {
           apt={pendingVisit.apt}
           type={pendingVisit.type}
           initialName={pendingVisit.initialName}
+          parkingSpots={activeSpots}
+          occupiedSpots={occupiedSpots}
           onConfirm={handleDetailConfirm}
           onClose={() => setPendingVisit(null)}
         />

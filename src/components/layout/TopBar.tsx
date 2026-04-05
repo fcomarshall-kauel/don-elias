@@ -14,6 +14,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/residentes':    'Gestión de Residentes',
   '/admin/conserjes':     'Gestión de Conserjes',
   '/admin/proveedores':   'Gestión de Proveedores',
+  '/admin/estacionamientos': 'Estacionamientos',
   '/admin/whatsapp':      'WhatsApp Business',
   '/admin/qr':            'QR para Residentes',
 };

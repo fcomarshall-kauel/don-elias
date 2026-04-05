@@ -4,21 +4,24 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useResidents } from '@/hooks/useResidents';
 import { useConcierges } from '@/hooks/useConcierges';
 import { useProviders } from '@/hooks/useProviders';
-import { Building2, Users, HardHat, Package, MessageCircle, QrCode, Settings } from 'lucide-react';
+import { useParkingSpots } from '@/hooks/useParkingSpots';
+import { Building2, Users, HardHat, Package, MessageCircle, QrCode, Car, Settings } from 'lucide-react';
 
 const cards = [
-  { href: '/admin/edificio',     icon: Building2,     label: 'Edificio',     color: 'bg-blue-500',   countKey: 'building' },
-  { href: '/admin/residentes',   icon: Users,         label: 'Residentes',   color: 'bg-green-500',  countKey: 'residents' },
-  { href: '/admin/conserjes',    icon: HardHat,       label: 'Conserjes',    color: 'bg-amber-500',  countKey: 'concierges' },
-  { href: '/admin/proveedores',  icon: Package,       label: 'Proveedores',  color: 'bg-purple-500', countKey: 'providers' },
-  { href: '/admin/whatsapp',     icon: MessageCircle, label: 'WhatsApp',     color: 'bg-[#25D366]',  countKey: 'whatsapp' },
-  { href: '/admin/qr',           icon: QrCode,        label: 'QR Residentes',color: 'bg-slate-600',  countKey: 'qr' },
+  { href: '/admin/edificio',          icon: Building2,     label: 'Edificio',         color: 'bg-blue-500',   countKey: 'building' },
+  { href: '/admin/residentes',        icon: Users,         label: 'Residentes',       color: 'bg-green-500',  countKey: 'residents' },
+  { href: '/admin/conserjes',         icon: HardHat,       label: 'Conserjes',        color: 'bg-amber-500',  countKey: 'concierges' },
+  { href: '/admin/proveedores',       icon: Package,       label: 'Proveedores',      color: 'bg-purple-500', countKey: 'providers' },
+  { href: '/admin/estacionamientos',  icon: Car,           label: 'Estacionamientos', color: 'bg-sky-500',    countKey: 'parking' },
+  { href: '/admin/whatsapp',          icon: MessageCircle, label: 'WhatsApp',         color: 'bg-[#25D366]',  countKey: 'whatsapp' },
+  { href: '/admin/qr',               icon: QrCode,        label: 'QR Residentes',    color: 'bg-slate-600',  countKey: 'qr' },
 ];
 
 export default function AdminPage() {
   const { residents } = useResidents();
   const { activeConcierges } = useConcierges();
   const { providers } = useProviders();
+  const { activeSpots, availableSpots } = useParkingSpots();
 
   const uniqueApts = new Set(residents.map(r => r.apt)).size;
 
@@ -27,6 +30,7 @@ export default function AdminPage() {
     residents: `${uniqueApts} deptos · ${residents.length} personas`,
     concierges: `${activeConcierges.length} activos`,
     providers: `${providers.length} proveedores`,
+    parking: `${availableSpots.length}/${activeSpots.length} disponibles`,
     whatsapp: 'Estado',
     qr: 'Generar',
   };

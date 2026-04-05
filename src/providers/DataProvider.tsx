@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo, R
 import { supabase } from '@/lib/supabase/client';
 import {
   Package, PackageType, WhatsAppMessage, WhatsAppSendResult,
-  WaEventType, WaMessageStatus, Visit, VisitType, Novedad, NovedadCategory, AppSettings,
+  WaEventType, WaMessageStatus, Visit, VisitType, Novedad, NovedadCategory, AppSettings, ParkingSpot,
 } from '@/types';
 import { Resident, ContactMethod } from '@/hooks/useResidents';
 import { Concierge } from '@/hooks/useConcierges';
@@ -32,6 +32,12 @@ const mapVisit = (r: any): Visit => ({
   id: r.id, visitorName: r.visitor_name, destinationApt: r.destination_apt,
   type: r.type, companyOrWorkType: r.company_or_work_type ?? undefined,
   checkedInAt: r.checked_in_at, checkedOutAt: r.checked_out_at ?? undefined, status: r.status,
+  vehiclePlate: r.vehicle_plate ?? undefined, parkingSpot: r.parking_spot ?? undefined,
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mapParkingSpot = (r: any): ParkingSpot => ({
+  id: r.id, name: r.name, spotType: r.spot_type, isActive: r.is_active, sortOrder: r.sort_order ?? 0,
 });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,6 +87,8 @@ interface DataContextType {
   setConcierges: React.Dispatch<React.SetStateAction<Concierge[]>>;
   providers: Provider[];
   setProviders: React.Dispatch<React.SetStateAction<Provider[]>>;
+  parkingSpots: ParkingSpot[];
+  setParkingSpots: React.Dispatch<React.SetStateAction<ParkingSpot[]>>;
   loaded: boolean;
 }
 
@@ -105,6 +113,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [residents, setResidents] = useState<Resident[]>([]);
   const [concierges, setConcierges] = useState<Concierge[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [parkingSpots, setParkingSpots] = useState<ParkingSpot[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -118,7 +127,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from('residents').select('*').order('apt'),
       supabase.from('concierges').select('*').order('name'),
       supabase.from('providers').select('*').order('sort_order'),
-    ]).then(([pkgRes, msgRes, visitRes, novRes, settRes, resRes, concRes, provRes]) => {
+      supabase.from('parking_spots').select('*').order('sort_order'),
+    ]).then(([pkgRes, msgRes, visitRes, novRes, settRes, resRes, concRes, provRes, parkRes]) => {
       if (pkgRes.data) setPackages(pkgRes.data.map(mapPackage));
       if (msgRes.data) setMessages(msgRes.data.map(mapMessage));
       if (visitRes.data) setVisits(visitRes.data.map(mapVisit));
@@ -127,6 +137,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (resRes.data) setResidents(resRes.data.map(mapResident));
       if (concRes.data) setConcierges(concRes.data.map(mapConcierge));
       if (provRes.data) setProviders(provRes.data.map(mapProvider));
+      if (parkRes.data) setParkingSpots(parkRes.data.map(mapParkingSpot));
       setLoaded(true);
     });
 
@@ -165,8 +176,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
     packages, setPackages, messages, setMessages, visits, setVisits,
     novedades, setNovedades, settings, setSettings, residents, setResidents,
-    concierges, setConcierges, providers, setProviders, loaded,
-  }), [packages, messages, visits, novedades, settings, residents, concierges, providers, loaded]);
+    concierges, setConcierges, providers, setProviders, parkingSpots, setParkingSpots, loaded,
+  }), [packages, messages, visits, novedades, settings, residents, concierges, providers, parkingSpots, loaded]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

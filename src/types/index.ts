@@ -9,6 +9,16 @@ export interface Visit {
   checkedInAt: string;
   checkedOutAt?: string;
   status: 'active' | 'checked-out';
+  vehiclePlate?: string;
+  parkingSpot?: string;
+}
+
+export interface ParkingSpot {
+  id: string;
+  name: string;
+  spotType: 'visita' | 'residente' | 'otro';
+  isActive: boolean;
+  sortOrder: number;
 }
 
 export type PackageType = 'food' | 'normal' | 'other' | 'supermercado';

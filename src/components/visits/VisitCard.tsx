@@ -1,6 +1,6 @@
 'use client';
 import { Visit } from '@/types';
-import { Users, Wrench, User, LogOut } from 'lucide-react';
+import { Users, Wrench, User, LogOut, Car } from 'lucide-react';
 
 const typeLabels: Record<Visit['type'], string> = {
   personal: 'Visita personal',
@@ -39,6 +39,11 @@ export function VisitCard({ visit, onCheckOut }: VisitCardProps) {
           {visit.companyOrWorkType ? ` · ${visit.companyOrWorkType}` : ''}
         </p>
         <p className="text-sm text-slate-400 font-medium mt-0.5">{typeLabels[visit.type]} · {elapsed(visit.checkedInAt)}</p>
+        {visit.vehiclePlate && (
+          <p className="text-sm text-blue-600 font-semibold mt-0.5 flex items-center gap-1">
+            <Car className="w-3.5 h-3.5" /> {visit.vehiclePlate}{visit.parkingSpot ? ` · ${visit.parkingSpot}` : ''}
+          </p>
+        )}
       </div>
       <button
         onClick={() => onCheckOut(visit.id)}
