@@ -1,26 +1,9 @@
 'use client';
-import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { AppSettings } from '@/types';
-
-const DEFAULT_SETTINGS: AppSettings = {
-  conciergerName: 'Claudio',
-  buildingName: 'Gran Bretaña',
-};
+import { useDataContext } from '@/providers/DataProvider';
 
 export function useSettings() {
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-
-  useEffect(() => {
-    supabase.from('app_settings').select('*').eq('id', 1).single().then(({ data }) => {
-      if (data) {
-        setSettings({
-          conciergerName: data.concierger_name,
-          buildingName: data.building_name,
-        });
-      }
-    });
-  }, []);
+  const { settings, setSettings } = useDataContext();
 
   const updateConciergerName = (name: string) => {
     setSettings(prev => ({ ...prev, conciergerName: name }));

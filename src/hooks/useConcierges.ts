@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
+import { useDataContext } from '@/providers/DataProvider';
 
 export interface Concierge {
   id: string;
@@ -9,21 +9,8 @@ export interface Concierge {
   isActive: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function fromRow(row: any): Concierge {
-  return { id: row.id, name: row.name, phone: row.phone ?? undefined, isActive: row.is_active };
-}
-
 export function useConcierges() {
-  const [concierges, setConcierges] = useState<Concierge[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase.from('concierges').select('*').order('name').then(({ data }) => {
-      if (data) setConcierges(data.map(fromRow));
-      setLoading(false);
-    });
-  }, []);
+  const { concierges, setConcierges, loaded } = useDataContext();
 
   const activeConcierges = concierges.filter(c => c.isActive);
   const activeNames = activeConcierges.map(c => c.name);
@@ -49,5 +36,5 @@ export function useConcierges() {
     await supabase.from('concierges').delete().eq('id', id);
   };
 
-  return { concierges, activeConcierges, activeNames, loading, addConcierge, updateConcierge, deleteConcierge };
+  return { concierges, activeConcierges, activeNames, loading: !loaded, addConcierge, updateConcierge, deleteConcierge };
 }
