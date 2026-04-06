@@ -1,6 +1,7 @@
 'use client';
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase/client';
+import { loadFromCache, saveToCache } from '@/lib/offlineStore';
 import {
   Package, PackageType, WhatsAppMessage, WhatsAppSendResult,
   WaEventType, WaMessageStatus, Visit, VisitType, Novedad, NovedadCategory, AppSettings, ParkingSpot,
@@ -117,7 +118,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    // Fetch all data in parallel (once)
+    // Step 1: Load from localStorage cache (instant, works offline)
+    const cached = {
+      packages: loadFromCache<Package[]>('packages'),
+      messages: loadFromCache<WhatsAppMessage[]>('messages'),
+      visits: loadFromCache<Visit[]>('visits'),
+      novedades: loadFromCache<Novedad[]>('novedades'),
+      settings: loadFromCache<AppSettings>('settings'),
+      residents: loadFromCache<Resident[]>('residents'),
+      concierges: loadFromCache<Concierge[]>('concierges'),
+      providers: loadFromCache<Provider[]>('providers'),
+      parkingSpots: loadFromCache<ParkingSpot[]>('parkingSpots'),
+    };
+
+    const cacheHits = Object.entries(cached).filter(([, v]) => v !== null).map(([k]) => k);
+    console.log(`[DataProvider] Cache loaded: ${cacheHits.length}/9 tables`, cacheHits);
+
+    if (cached.packages) setPackages(cached.packages);
+    if (cached.messages) setMessages(cached.messages);
+    if (cached.visits) setVisits(cached.visits);
+    if (cached.novedades) setNovedades(cached.novedades);
+    if (cached.settings) setSettings(cached.settings);
+    if (cached.residents) setResidents(cached.residents);
+    if (cached.concierges) setConcierges(cached.concierges);
+    if (cached.providers) setProviders(cached.providers);
+    if (cached.parkingSpots) setParkingSpots(cached.parkingSpots);
+
+    // Mark as loaded if we have cached data (app is usable immediately)
+    const hasCachedData = !!(cached.packages || cached.settings);
+    if (hasCachedData) setLoaded(true);
+
+    // Step 2: Fetch from Supabase in background (update cache)
     Promise.all([
       supabase.from('packages').select('*').order('received_at', { ascending: false }),
       supabase.from('whatsapp_messages').select('*').order('sent_at', { ascending: true }).limit(500),
@@ -129,15 +160,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from('providers').select('*').order('sort_order'),
       supabase.from('parking_spots').select('*').order('sort_order'),
     ]).then(([pkgRes, msgRes, visitRes, novRes, settRes, resRes, concRes, provRes, parkRes]) => {
-      if (pkgRes.data) setPackages(pkgRes.data.map(mapPackage));
-      if (msgRes.data) setMessages(msgRes.data.map(mapMessage));
-      if (visitRes.data) setVisits(visitRes.data.map(mapVisit));
-      if (novRes.data) setNovedades(novRes.data.map(mapNovedad));
-      if (settRes.data) setSettings({ conciergerName: settRes.data.concierger_name, buildingName: settRes.data.building_name });
-      if (resRes.data) setResidents(resRes.data.map(mapResident));
-      if (concRes.data) setConcierges(concRes.data.map(mapConcierge));
-      if (provRes.data) setProviders(provRes.data.map(mapProvider));
-      if (parkRes.data) setParkingSpots(parkRes.data.map(mapParkingSpot));
+      if (pkgRes.data) { const d = pkgRes.data.map(mapPackage); setPackages(d); saveToCache('packages', d); }
+      if (msgRes.data) { const d = msgRes.data.map(mapMessage); setMessages(d); saveToCache('messages', d); }
+      if (visitRes.data) { const d = visitRes.data.map(mapVisit); setVisits(d); saveToCache('visits', d); }
+      if (novRes.data) { const d = novRes.data.map(mapNovedad); setNovedades(d); saveToCache('novedades', d); }
+      if (settRes.data) { const d = { conciergerName: settRes.data.concierger_name, buildingName: settRes.data.building_name }; setSettings(d); saveToCache('settings', d); }
+      if (resRes.data) { const d = resRes.data.map(mapResident); setResidents(d); saveToCache('residents', d); }
+      if (concRes.data) { const d = concRes.data.map(mapConcierge); setConcierges(d); saveToCache('concierges', d); }
+      if (provRes.data) { const d = provRes.data.map(mapProvider); setProviders(d); saveToCache('providers', d); }
+      if (parkRes.data) { const d = parkRes.data.map(mapParkingSpot); setParkingSpots(d); saveToCache('parkingSpots', d); }
+      console.log('[DataProvider] Supabase sync complete — cache updated');
+      setLoaded(true);
+    }).catch(() => {
+      // Supabase unreachable — app continues with cached data
+      console.warn('[DataProvider] Supabase unreachable, using cached data');
       setLoaded(true);
     });
 

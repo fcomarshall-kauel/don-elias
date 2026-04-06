@@ -1,7 +1,7 @@
 'use client';
 import { useCallback } from 'react';
-import { supabase } from '@/lib/supabase/client';
 import { useDataContext } from '@/providers/DataProvider';
+import { syncMutation, saveToCache } from '@/lib/offlineStore';
 
 export type ContactMethod = 'whatsapp' | 'citofono' | 'llamada' | 'ninguno';
 
@@ -41,8 +41,10 @@ export function useResidents() {
 
   const addResident = async (data: Omit<Resident, 'id'>) => {
     const id = crypto.randomUUID();
-    setResidents(prev => [...prev, { ...data, id }]);
-    await supabase.from('residents').insert({
+    const updated = [...residents, { ...data, id }];
+    setResidents(updated);
+    saveToCache('residents', updated);
+    syncMutation('residents', 'insert', {
       id, apt: data.apt, name: data.name, tower: data.tower, phone: data.phone,
       contact_preference: data.contactPreference,
       contact_for_packages: data.contactForPackages,
@@ -55,7 +57,9 @@ export function useResidents() {
   };
 
   const updateResident = async (id: string, data: Partial<Resident>) => {
-    setResidents(prev => prev.map(r => r.id === id ? { ...r, ...data } : r));
+    const updated = residents.map(r => r.id === id ? { ...r, ...data } : r);
+    setResidents(updated);
+    saveToCache('residents', updated);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const row: any = {};
     if (data.name !== undefined) row.name = data.name;
@@ -71,12 +75,14 @@ export function useResidents() {
     if (data.nanaPhone !== undefined) row.nana_phone = data.nanaPhone;
     if (data.schedule !== undefined) row.schedule = data.schedule;
     if (data.notes !== undefined) row.notes = data.notes;
-    await supabase.from('residents').update(row).eq('id', id);
+    syncMutation('residents', 'update', row, { column: 'id', op: 'eq', value: id });
   };
 
   const deleteResident = async (id: string) => {
-    setResidents(prev => prev.filter(r => r.id !== id));
-    await supabase.from('residents').delete().eq('id', id);
+    const updated = residents.filter(r => r.id !== id);
+    setResidents(updated);
+    saveToCache('residents', updated);
+    syncMutation('residents', 'delete', {}, { column: 'id', op: 'eq', value: id });
   };
 
   return { residents, loading: !loaded, getByApt, getNanasByApt, getFrequentVisitorsByApt, getPhonesByApt, getAptByPhone, getAllApts, addResident, updateResident, deleteResident };

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { ConversationList } from '@/components/messages/ConversationList';
@@ -10,6 +10,14 @@ import { MessageCircle, Trash2 } from 'lucide-react';
 import { WhatsAppMessage } from '@/types';
 
 export default function MensajesPage() {
+  return (
+    <Suspense>
+      <MensajesContent />
+    </Suspense>
+  );
+}
+
+function MensajesContent() {
   const { messages, conversationList, getConversation, clearMessages } = useWhatsAppMessages();
   const { seenMap, markSeen } = useSeenMessages();
   const searchParams = useSearchParams();

@@ -1,7 +1,7 @@
 'use client';
 import { useMemo } from 'react';
-import { supabase } from '@/lib/supabase/client';
 import { useDataContext } from '@/providers/DataProvider';
+import { syncMutation, saveToCache } from '@/lib/offlineStore';
 import { Novedad, NovedadCategory } from '@/types';
 
 export function useNovedades() {
@@ -16,21 +16,25 @@ export function useNovedades() {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const newNovedad: Novedad = { id, ...data, createdAt: now, isHandoverEntry: false };
-    setNovedades(prev => [newNovedad, ...prev]);
-    supabase.from('novedades').insert({
+    const updated = [newNovedad, ...novedades];
+    setNovedades(updated);
+    saveToCache('novedades', updated);
+    syncMutation('novedades', 'insert', {
       id, text: data.text, category: data.category, author: data.author,
       created_at: now, is_handover_entry: false,
-    }).then();
+    });
   };
 
   const addHandoverEntry = (text: string, author: string) => {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const entry: Novedad = { id, text, category: 'informativo', createdAt: now, author, isHandoverEntry: true };
-    setNovedades(prev => [entry, ...prev]);
-    supabase.from('novedades').insert({
+    const updated = [entry, ...novedades];
+    setNovedades(updated);
+    saveToCache('novedades', updated);
+    syncMutation('novedades', 'insert', {
       id, text, category: 'informativo', author, created_at: now, is_handover_entry: true,
-    }).then();
+    });
   };
 
   return { novedades, recentNovedades, addNovedad, addHandoverEntry };

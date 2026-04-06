@@ -30,7 +30,14 @@ export function TopBar() {
       <div className="flex items-center gap-4">
         {!isHome && (
           <button
-            onClick={() => router.back()}
+            onClick={() => {
+              // If there's browser history, go back. Otherwise navigate to home.
+              if (window.history.length > 1) {
+                router.back();
+              } else {
+                router.push('/');
+              }
+            }}
             className="flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors text-slate-600 cursor-pointer"
           >
             <ChevronLeft className="w-7 h-7" />

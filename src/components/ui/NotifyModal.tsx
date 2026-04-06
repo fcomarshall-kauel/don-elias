@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Modal } from './Modal';
 import { BigButton } from './BigButton';
-import { CheckCircle, Loader2, MessageCircle, XCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle, Loader2, MessageCircle, XCircle, RefreshCw, WifiOff, Clock } from 'lucide-react';
 import { WhatsAppSendResult } from '@/types';
 
 interface NotifyModalProps {
@@ -15,7 +15,7 @@ interface NotifyModalProps {
 }
 
 export function NotifyModal({ isOpen, onClose, apt, messageText, onConfirm, onSend }: NotifyModalProps) {
-  const [phase, setPhase] = useState<'sending' | 'success' | 'error'>('sending');
+  const [phase, setPhase] = useState<'sending' | 'success' | 'queued' | 'error'>('sending');
   const [errorMsg, setErrorMsg] = useState('');
   const [isMock, setIsMock] = useState(false);
   const hasSentRef = useRef(false);
@@ -28,8 +28,14 @@ export function NotifyModal({ isOpen, onClose, apt, messageText, onConfirm, onSe
     try {
       const result = await onSendRef.current();
       if (result.success) {
-        setPhase('success');
-        setIsMock(result.mock ?? false);
+        // Check if it was queued (offline) vs actually sent
+        const isQueued = result.messageId?.startsWith('offline-') || result.messageId?.startsWith('queued-');
+        if (isQueued) {
+          setPhase('queued');
+        } else {
+          setPhase('success');
+          setIsMock(result.mock ?? false);
+        }
       } else {
         setPhase('error');
         setErrorMsg(result.error ?? 'Error al enviar');
@@ -51,7 +57,7 @@ export function NotifyModal({ isOpen, onClose, apt, messageText, onConfirm, onSe
   }, [isOpen]);
 
   const handleClose = () => {
-    if (phase === 'success') {
+    if (phase === 'success' || phase === 'queued') {
       onConfirm?.();
     }
     onClose();
@@ -97,6 +103,25 @@ export function NotifyModal({ isOpen, onClose, apt, messageText, onConfirm, onSe
             </div>
             <BigButton variant="success" onClick={handleClose} className="mt-2">
               Listo
+            </BigButton>
+          </>
+        )}
+
+        {phase === 'queued' && (
+          <>
+            <div className="relative">
+              <WifiOff className="w-16 h-16 text-amber-500" />
+              <Clock className="w-7 h-7 text-amber-500 absolute -bottom-1 -right-1 bg-white rounded-full" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-amber-700">Mensaje en cola</p>
+              <p className="text-slate-500 mt-1">Depto. {apt}</p>
+              <p className="text-sm text-amber-600 bg-amber-50 rounded-lg p-3 mt-3">
+                No hay conexion a internet. El mensaje se enviara automaticamente cuando se restablezca la conexion.
+              </p>
+            </div>
+            <BigButton variant="primary" onClick={handleClose} className="mt-2">
+              Entendido
             </BigButton>
           </>
         )}

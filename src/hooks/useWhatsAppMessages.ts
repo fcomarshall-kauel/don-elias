@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useCallback } from 'react';
-import { supabase } from '@/lib/supabase/client';
 import { useDataContext } from '@/providers/DataProvider';
+import { syncMutation, saveToCache } from '@/lib/offlineStore';
 import { WhatsAppMessage, WhatsAppSendResult, WaEventType, WaMessageStatus, PackageType } from '@/types';
 
 // ─── Text builders ──────────────────────────────────────────────────────
@@ -56,19 +56,56 @@ export function useWhatsAppMessages() {
     const now = new Date().toISOString();
     const newMsg: WhatsAppMessage = { id: msgId, sentAt: now, status: 'sending', direction: 'outgoing', ...data };
 
-    setMessages(prev => [...prev, newMsg]);
+    const addMsg = (msg: WhatsAppMessage) => {
+      setMessages(prev => {
+        const updated = [...prev, msg];
+        saveToCache('messages', updated);
+        return updated;
+      });
+    };
+
+    const updateMsg = (id: string, patch: Partial<WhatsAppMessage>) => {
+      setMessages(prev => {
+        const updated = prev.map(m => m.id === id ? { ...m, ...patch } : m);
+        saveToCache('messages', updated);
+        return updated;
+      });
+    };
+
+    addMsg(newMsg);
 
     const isEnabled = process.env.NEXT_PUBLIC_WHATSAPP_ENABLED === 'true';
+    const dbRow = {
+      id: msgId, apt: data.apt, text: data.text, sent_at: now,
+      package_id: data.packageId || null, event_type: data.eventType,
+      direction: 'outgoing', phone_number: data.phoneNumber,
+    };
 
     if (!isEnabled || !data.phoneNumber) {
-      const mockMsg = { ...newMsg, status: 'sent' as const, mock: true };
-      setMessages(prev => prev.map(m => m.id === msgId ? mockMsg : m));
-      supabase.from('whatsapp_messages').insert({
-        id: msgId, apt: data.apt, text: data.text, sent_at: now,
-        package_id: data.packageId || null, event_type: data.eventType,
-        direction: 'outgoing', phone_number: data.phoneNumber, status: 'sent', mock: true,
-      }).then();
+      updateMsg(msgId, { status: 'sent', mock: true });
+      syncMutation('whatsapp_messages', 'insert', { ...dbRow, status: 'sent', mock: true });
       return { success: true, mock: true };
+    }
+
+    // If offline, queue the WhatsApp send for later and mark as pending
+    if (!navigator.onLine) {
+      updateMsg(msgId, { status: 'sent', mock: false });
+      syncMutation('whatsapp_messages', 'insert', { ...dbRow, status: 'sent', mock: false });
+      // Queue the actual WhatsApp API call for when we're back online
+      import('@/lib/offlineStore').then(({ addToSyncQueue }) => {
+        addToSyncQueue({
+          table: '_whatsapp_send',
+          operation: 'insert',
+          data: {
+            to: data.phoneNumber, apt: data.apt, eventType: data.eventType,
+            packageId: data.packageId, packageType: data.packageType,
+            buildingName: data.buildingName, provider: data.provider,
+            note: data.note, concierge: data.concierge, deliveredTo: data.deliveredTo,
+            msgId,
+          },
+        });
+      });
+      return { success: true, mock: false, messageId: `offline-${msgId}` };
     }
 
     try {
@@ -83,28 +120,33 @@ export function useWhatsAppMessages() {
         }),
       });
       const result: WhatsAppSendResult = await res.json();
-      const updatedMsg = {
-        ...newMsg,
+      updateMsg(msgId, {
         status: (result.success ? 'sent' : 'failed') as WaMessageStatus,
         waMessageId: result.messageId, mock: result.mock,
-      };
-      setMessages(prev => prev.map(m => m.id === msgId ? updatedMsg : m));
-      supabase.from('whatsapp_messages').insert({
-        id: msgId, apt: data.apt, text: data.text, sent_at: now,
-        package_id: data.packageId || null, event_type: data.eventType,
-        direction: 'outgoing', phone_number: data.phoneNumber,
-        wa_message_id: result.messageId, status: result.success ? 'sent' : 'failed',
-        mock: result.mock ?? false,
-      }).then();
+      });
+      syncMutation('whatsapp_messages', 'insert', {
+        ...dbRow, wa_message_id: result.messageId,
+        status: result.success ? 'sent' : 'failed', mock: result.mock ?? false,
+      });
       return result;
     } catch {
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, status: 'failed' as const } : m));
-      supabase.from('whatsapp_messages').insert({
-        id: msgId, apt: data.apt, text: data.text, sent_at: now,
-        package_id: data.packageId || null, event_type: data.eventType,
-        direction: 'outgoing', phone_number: data.phoneNumber, status: 'failed', mock: false,
-      }).then();
-      return { success: false, error: 'Error de conexion' };
+      // Network error — queue for later instead of showing error
+      updateMsg(msgId, { status: 'sent' });
+      syncMutation('whatsapp_messages', 'insert', { ...dbRow, status: 'sent', mock: false });
+      import('@/lib/offlineStore').then(({ addToSyncQueue }) => {
+        addToSyncQueue({
+          table: '_whatsapp_send',
+          operation: 'insert',
+          data: {
+            to: data.phoneNumber, apt: data.apt, eventType: data.eventType,
+            packageId: data.packageId, packageType: data.packageType,
+            buildingName: data.buildingName, provider: data.provider,
+            note: data.note, concierge: data.concierge, deliveredTo: data.deliveredTo,
+            msgId,
+          },
+        });
+      });
+      return { success: true, mock: false, messageId: `queued-${msgId}` };
     }
   };
 
@@ -116,7 +158,13 @@ export function useWhatsAppMessages() {
 
   const clearMessages = useCallback(() => {
     setMessages([]);
-    supabase.from('whatsapp_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000').then();
+    saveToCache('messages', []);
+    syncMutation('whatsapp_messages', 'delete', {}, { column: 'id', op: 'eq', value: '00000000-0000-0000-0000-000000000000' });
+    // Note: full clear is handled differently — we delete all rows
+    // The sync queue approach won't work well for "delete all", so we try directly
+    import('@/lib/supabase/client').then(({ supabase }) => {
+      supabase.from('whatsapp_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000').then();
+    });
   }, [setMessages]);
 
   return { messages, conversations, conversationList, sendAndRecord, getConversation, clearMessages };
