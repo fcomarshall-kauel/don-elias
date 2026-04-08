@@ -154,33 +154,34 @@ export default function PaquetesPage() {
 
   return (
     <AppShell>
-      <div className="flex-1 overflow-hidden flex gap-6 p-6">
+      <div className="flex-1 md:overflow-hidden flex flex-col md:flex-row gap-3 md:gap-6 p-3 md:p-6 overflow-y-auto">
 
         {/* Left: type selector */}
-        <div className="w-72 shrink-0 bg-white rounded-3xl shadow-md border border-slate-200 flex flex-col overflow-hidden">
-          <div className="p-5 bg-slate-50 border-b border-slate-200 shrink-0">
-            <h2 className="text-2xl font-bold text-slate-800">Registrar</h2>
+        <div className="w-full md:w-72 shrink-0 bg-white rounded-2xl md:rounded-3xl shadow-md border border-slate-200 flex flex-col md:overflow-hidden">
+          <div className="p-3 md:p-5 bg-slate-50 border-b border-slate-200 shrink-0">
+            <h2 className="text-lg md:text-2xl font-bold text-slate-800">Registrar</h2>
           </div>
-          <div className="flex-1 overflow-y-auto p-5">
+          <div className="md:flex-1 md:overflow-y-auto p-3 md:p-5">
             <PackageForm onSelectType={handleSelectType} />
           </div>
         </div>
 
         {/* Right: pending packages grid (grouped by apt) */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between mb-4 shrink-0">
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-bold text-slate-800">Paquetes Pendientes</h2>
+        <div className="flex-1 flex flex-col md:overflow-hidden min-h-0">
+          <div className="flex items-center justify-between mb-3 md:mb-4 shrink-0 gap-2">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0">
+              <h2 className="text-lg md:text-2xl font-bold text-slate-800 truncate">Pendientes</h2>
               {pendingPackages.length > 0 && (
-                <span className="bg-amber-500 text-white text-lg font-bold px-3 py-0.5 rounded-full">
+                <span className="bg-amber-500 text-white text-sm md:text-lg font-bold px-2 md:px-3 py-0.5 rounded-full shrink-0">
                   {pendingPackages.length}
                 </span>
               )}
             </div>
             <Link href="/mensajes?from=paquetes">
-              <button className="flex items-center gap-2 bg-[#25D366] hover:bg-[#1da851] text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors cursor-pointer">
-                <MessageCircle className="w-4 h-4" />
-                Ver conversaciones
+              <button className="flex items-center gap-1 md:gap-2 bg-[#25D366] hover:bg-[#1da851] text-white px-2 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl font-semibold text-xs md:text-sm transition-colors cursor-pointer">
+                <MessageCircle className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="hidden md:inline">Ver conversaciones</span>
+                <span className="md:hidden">Mensajes</span>
                 {conversationList.length > 0 && (
                   <span className="bg-white/30 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
                     {conversationList.length}
@@ -199,7 +200,7 @@ export default function PaquetesPage() {
             ) : (
               <div className="flex flex-wrap gap-2 items-start content-start">
                 {groupedByApt.map(([apt, pkgs]) => (
-                  <div key={apt} className="w-48">
+                  <div key={apt} className="w-[calc(50%-4px)] sm:w-48">
                     <PackageCard
                       apt={apt}
                       packages={pkgs}

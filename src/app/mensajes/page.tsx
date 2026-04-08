@@ -6,7 +6,7 @@ import { ConversationList } from '@/components/messages/ConversationList';
 import { ChatView, EmptyChatView } from '@/components/messages/ChatView';
 import { useWhatsAppMessages } from '@/hooks/useWhatsAppMessages';
 import { useSeenMessages } from '@/hooks/useSeenMessages';
-import { MessageCircle, Trash2 } from 'lucide-react';
+import { MessageCircle, Trash2, ArrowLeft } from 'lucide-react';
 import { WhatsAppMessage } from '@/types';
 
 export default function MensajesPage() {
@@ -57,8 +57,8 @@ function MensajesContent() {
   return (
     <AppShell>
       <div className="flex-1 overflow-hidden flex">
-        {/* Left: conversation list */}
-        <div className="w-80 shrink-0 bg-white border-r border-slate-200 flex flex-col">
+        {/* Left: conversation list — hidden on mobile when a chat is selected */}
+        <div className={`${selectedApt ? 'hidden md:flex' : 'flex'} w-full md:w-80 shrink-0 bg-white border-r border-slate-200 flex-col`}>
           <div className="px-4 py-3 bg-[#f0f2f5] border-b border-slate-200 flex items-center gap-2 shrink-0">
             <MessageCircle className="w-5 h-5 text-[#25D366]" />
             <h2 className="text-lg font-bold text-slate-800">Conversaciones</h2>
@@ -90,9 +90,20 @@ function MensajesContent() {
 
         {/* Right: chat view */}
         {selectedApt ? (
-          <ChatView apt={selectedApt} messages={chatMessages} />
+          <div className="flex-1 flex flex-col">
+            <button
+              onClick={() => setSelectedApt(null)}
+              className="md:hidden flex items-center gap-2 text-slate-500 hover:text-slate-800 px-4 py-2 bg-[#f0f2f5] border-b border-slate-200 self-stretch"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-semibold">Volver</span>
+            </button>
+            <ChatView apt={selectedApt} messages={chatMessages} />
+          </div>
         ) : (
-          <EmptyChatView />
+          <div className="hidden md:flex flex-1">
+            <EmptyChatView />
+          </div>
         )}
       </div>
     </AppShell>

@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { useResidents, Resident, ContactMethod } from '@/hooks/useResidents';
-import { Search, Plus, Trash2, Save, User, Users, Phone, X, Clock } from 'lucide-react';
+import { Search, Plus, Trash2, Save, User, Users, Phone, X, Clock, ArrowLeft } from 'lucide-react';
 
 const CONTACT_OPTIONS: { value: ContactMethod; label: string; emoji: string }[] = [
   { value: 'whatsapp', label: 'WhatsApp', emoji: '💬' },
@@ -151,8 +151,8 @@ export default function ResidentesAdminPage() {
   return (
     <AppShell>
       <div className="flex-1 overflow-hidden flex">
-        {/* Left: apt list */}
-        <div className="w-72 shrink-0 bg-white border-r border-slate-200 flex flex-col">
+        {/* Left: apt list — hidden on mobile when an apt is selected */}
+        <div className={`${selectedApt ? 'hidden md:flex' : 'flex'} w-full md:w-72 shrink-0 bg-white border-r border-slate-200 flex-col`}>
           <div className="p-4 border-b border-slate-200">
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -178,8 +178,17 @@ export default function ResidentesAdminPage() {
           </div>
         </div>
 
-        {/* Right: detail */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Right: detail — hidden on mobile when no apt selected */}
+        <div className={`${selectedApt ? 'flex flex-1' : 'hidden md:flex md:flex-1'} flex-col overflow-y-auto p-3 md:p-6`}>
+          {selectedApt && (
+            <button
+              onClick={() => setSelectedApt(null)}
+              className="md:hidden flex items-center gap-2 text-slate-500 hover:text-slate-800 mb-3 self-start"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-semibold">Volver al listado</span>
+            </button>
+          )}
           {!selectedApt ? (
             <div className="h-full flex items-center justify-center text-slate-400">
               <div className="text-center">
