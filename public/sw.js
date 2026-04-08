@@ -2,7 +2,7 @@
 // Pre-caches all app routes + their JS/CSS bundles on install.
 // No need to visit each page — everything is ready for offline.
 
-const CACHE_NAME = 'porteros-v3';
+const CACHE_NAME = 'porteros-v4';
 
 const APP_ROUTES = [
   '/',
