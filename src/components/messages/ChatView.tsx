@@ -3,6 +3,8 @@ import { useEffect, useRef } from 'react';
 import { Check, CheckCheck, Clock, AlertCircle, MessageCircle } from 'lucide-react';
 import { WhatsAppMessage, WaMessageStatus } from '@/types';
 import { getResidentsByApt } from '@/data/residents';
+import { useResidents } from '@/hooks/useResidents';
+import { CallButton } from '@/components/ui/CallButton';
 
 interface ChatViewProps {
   apt: string;
@@ -39,7 +41,9 @@ function EventBadge({ type }: { type: string }) {
 
 export function ChatView({ apt, messages }: ChatViewProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { getPhonesByApt } = useResidents();
   const residents = getResidentsByApt(apt);
+  const phoneNumber = getPhonesByApt(apt)[0];
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -60,7 +64,7 @@ export function ChatView({ apt, messages }: ChatViewProps) {
         <div className="w-10 h-10 bg-[#25D366] rounded-full flex items-center justify-center text-white text-sm font-bold">
           {apt}
         </div>
-        <div>
+        <div className="flex-1">
           <p className="font-semibold text-slate-800">Depto. {apt}</p>
           {residents.length > 0 && (
             <p className="text-xs text-slate-500">
@@ -69,6 +73,7 @@ export function ChatView({ apt, messages }: ChatViewProps) {
             </p>
           )}
         </div>
+        <CallButton phoneNumber={phoneNumber} variant="icon" size="md" />
       </div>
 
       {/* Messages */}

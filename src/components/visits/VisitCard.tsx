@@ -1,6 +1,7 @@
 'use client';
 import { Visit } from '@/types';
 import { Users, Wrench, User, LogOut, Car } from 'lucide-react';
+import { CallButton } from '@/components/ui/CallButton';
 
 const typeLabels: Record<Visit['type'], string> = {
   personal: 'Visita personal',
@@ -22,10 +23,11 @@ function elapsed(iso: string) {
 
 interface VisitCardProps {
   visit: Visit;
+  phoneNumber?: string;
   onCheckOut: (id: string) => void;
 }
 
-export function VisitCard({ visit, onCheckOut }: VisitCardProps) {
+export function VisitCard({ visit, phoneNumber, onCheckOut }: VisitCardProps) {
   const Icon = typeIcons[visit.type];
   const c = typeColors[visit.type];
 
@@ -45,6 +47,7 @@ export function VisitCard({ visit, onCheckOut }: VisitCardProps) {
           </p>
         )}
       </div>
+      <CallButton phoneNumber={phoneNumber} variant="icon" size="lg" className="shrink-0" />
       <button
         onClick={() => onCheckOut(visit.id)}
         className="shrink-0 flex items-center gap-2 bg-red-100 hover:bg-red-200 active:bg-red-300 text-red-700 border-2 border-red-200 px-4 py-2.5 rounded-xl font-bold text-base transition-colors cursor-pointer"

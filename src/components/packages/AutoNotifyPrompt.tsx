@@ -5,6 +5,7 @@ import { BigButton } from '../ui/BigButton';
 import { CheckCircle, MessageCircle, Phone, Clock } from 'lucide-react';
 import { PackageType } from '@/types';
 import { ContactMethod } from '@/hooks/useResidents';
+import { CallButton } from '../ui/CallButton';
 
 interface AutoNotifyPromptProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface AutoNotifyPromptProps {
   packageType: PackageType;
   contactMethod: ContactMethod;  // whatsapp | citofono | llamada | ninguno
   hasPhone: boolean;
+  phoneNumber?: string;
   residentNames: string[];
   onConfirmWhatsApp: () => void;
   onDismiss: () => void;
@@ -27,7 +29,7 @@ const typeLabels: Record<string, string> = {
 };
 
 export function AutoNotifyPrompt({
-  isOpen, apt, packageType, contactMethod, hasPhone, residentNames,
+  isOpen, apt, packageType, contactMethod, hasPhone, phoneNumber, residentNames,
   onConfirmWhatsApp, onDismiss,
 }: AutoNotifyPromptProps) {
   const [countdown, setCountdown] = useState(AUTO_CLOSE_SECONDS);
@@ -129,7 +131,10 @@ export function AutoNotifyPrompt({
                 </p>
               </div>
             </div>
-            <BigButton variant="primary" onClick={onDismiss} className="w-full">
+            {phoneNumber && contactMethod === 'llamada' && (
+              <CallButton phoneNumber={phoneNumber} variant="full" className="w-full" />
+            )}
+            <BigButton variant="secondary" onClick={onDismiss} className="w-full">
               Entendido
             </BigButton>
           </div>

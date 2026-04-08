@@ -6,6 +6,7 @@ import {
   CheckCircle, Check, CheckCheck, Clock, AlertCircle, MessageCircle,
   RefreshCw, X,
 } from 'lucide-react';
+import { CallButton } from '../ui/CallButton';
 
 const typeEmoji: Record<string, string> = {
   food: '🍔', supermercado: '🛒', normal: '📦', other: '📄',
@@ -221,10 +222,11 @@ interface PackageCardProps {
   messages: WhatsAppMessage[];
   isNew?: string | null;
   lastSeenAt?: string | null;
+  phoneNumber?: string;
   onDeliver: (apt: string, packageIds: string[]) => void;
 }
 
-export function PackageCard({ apt, packages, messages, isNew, lastSeenAt, onDeliver }: PackageCardProps) {
+export function PackageCard({ apt, packages, messages, isNew, lastSeenAt, phoneNumber, onDeliver }: PackageCardProps) {
   const [showDetail, setShowDetail] = useState(false);
   const [blinking, setBlinking] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -285,13 +287,16 @@ export function PackageCard({ apt, packages, messages, isNew, lastSeenAt, onDeli
 
         {/* Deliver button */}
         <div className="px-3 pb-3">
-          <button
-            onClick={() => onDeliver(apt, allIds)}
-            className="w-full flex items-center justify-center gap-1.5 bg-[#00875A] hover:bg-[#006644] text-white py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer"
-          >
-            <CheckCircle className="w-3.5 h-3.5" />
-            Entregar
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onDeliver(apt, allIds)}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-[#00875A] hover:bg-[#006644] text-white py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              Entregar
+            </button>
+            <CallButton phoneNumber={phoneNumber} variant="icon" size="md" />
+          </div>
         </div>
       </div>
 

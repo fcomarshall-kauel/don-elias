@@ -8,6 +8,7 @@ import { VisitCard } from '@/components/visits/VisitCard';
 import { NumpadModal } from '@/components/ui/NumpadModal';
 import { useVisits } from '@/hooks/useVisits';
 import { useParkingSpots } from '@/hooks/useParkingSpots';
+import { useResidents } from '@/hooks/useResidents';
 import { VisitType } from '@/types';
 import { VisitVoiceCommand } from '@/lib/voiceParser';
 import { Users, User, Wrench } from 'lucide-react';
@@ -22,6 +23,7 @@ const TYPE_NUMPAD: Record<VisitType, { label: string; icon: LucideIcon; color: s
 export default function VisitasPage() {
   const { activeVisits, recentVisits, addVisit, checkOut } = useVisits();
   const { activeSpots, occupiedSpots } = useParkingSpots();
+  const { getPhonesByApt } = useResidents();
 
   // Flujo: tipo → numpad → detalle
   const [selectedType, setSelectedType] = useState<VisitType | null>(null);
@@ -98,7 +100,7 @@ export default function VisitasPage() {
               </div>
             ) : (
               activeVisits.map(v => (
-                <VisitCard key={v.id} visit={v} onCheckOut={checkOut} />
+                <VisitCard key={v.id} visit={v} phoneNumber={getPhonesByApt(v.destinationApt)[0]} onCheckOut={checkOut} />
               ))
             )}
 

@@ -206,6 +206,7 @@ export default function PaquetesPage() {
                       messages={messages}
                       isNew={newPkgId}
                       lastSeenAt={getLastSeen(apt)}
+                      phoneNumber={getPhones(apt)[0]}
                       onDeliver={handleDeliver}
                     />
                   </div>
@@ -273,6 +274,7 @@ export default function PaquetesPage() {
             packageType={autoNotifyTarget.type}
             contactMethod={contactMethod}
             hasPhone={phones.length > 0}
+            phoneNumber={phones[0]}
             residentNames={aptResidents.map(r => r.name)}
             onConfirmWhatsApp={handleAutoNotifyConfirm}
             onDismiss={handleAutoNotifyDismiss}
